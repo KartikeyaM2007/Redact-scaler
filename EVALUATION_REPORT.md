@@ -22,7 +22,7 @@ This is a targeted unit-level result, not a claim that the same figures apply to
 
 ## Prospectus run
 
-The supplied **Red Herring Prospectus** was processed successfully. The run changed 229 paragraphs and made 347 redactions across 180 unique source values.
+The supplied **Red Herring Prospectus** was processed successfully. The latest local run changed 229 paragraphs and made 347 redactions across 174 unique source values.
 
 | PII type detected in this document | Occurrences |
 | --- | ---: |

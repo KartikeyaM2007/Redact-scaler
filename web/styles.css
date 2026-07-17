@@ -94,14 +94,16 @@ p {
   grid-template-areas:
     "upload workflow"
     "upload terminal"
-    "summary summary";
+    "summary summary"
+    "result result";
   gap: 16px;
 }
 
 .upload-panel,
 .workflow-panel,
 .terminal-panel,
-.summary-panel {
+.summary-panel,
+.result-panel {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
@@ -125,6 +127,11 @@ p {
 
 .summary-panel {
   grid-area: summary;
+  padding: 18px;
+}
+
+.result-panel {
+  grid-area: result;
   padding: 18px;
 }
 
@@ -317,6 +324,33 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.result-meta {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdff;
+  color: var(--muted);
+  font-size: 13px;
+  margin: 16px 0 12px;
+  overflow-wrap: anywhere;
+  padding: 12px;
+}
+
+#resultPreview {
+  min-height: 260px;
+  max-height: 460px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #1d2a3d;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+  padding: 16px;
+  white-space: pre-wrap;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(140px, 1fr));
@@ -351,7 +385,8 @@ button:disabled {
       "upload"
       "workflow"
       "terminal"
-      "summary";
+      "summary"
+      "result";
   }
 
   .workflow,

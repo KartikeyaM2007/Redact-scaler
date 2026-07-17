@@ -32,6 +32,7 @@ ROOT = Path(__file__).resolve().parent
 WEB_ROOT = ROOT / "web"
 OUTPUT_ROOT = ROOT / "web_outputs"
 MAX_UPLOAD_BYTES = 40 * 1024 * 1024
+PREVIEW_PARAGRAPH_LIMIT = 36
 
 
 def safe_filename(name: str) -> str:
@@ -42,6 +43,18 @@ def safe_filename(name: str) -> str:
     if not cleaned.lower().endswith(".docx"):
         cleaned += ".docx"
     return cleaned
+
+
+def docx_preview(path: Path, limit: int = PREVIEW_PARAGRAPH_LIMIT) -> list[str]:
+    document = Document(path)
+    lines: list[str] = []
+    for paragraph in document.paragraphs:
+        text = paragraph.text.strip()
+        if text:
+            lines.append(text)
+        if len(lines) >= limit:
+            break
+    return lines
 
 
 class StepLogger:
@@ -168,14 +181,20 @@ class RedactionHandler(SimpleHTTPRequestHandler):
             raise ValueError("Redaction finished but no output DOCX was created.")
         logger.step("output", "Output DOCX ready", "done", str(output_path))
         logger.step("download", "Download prepared", "done", f"/outputs/{job_id}/{output_name}")
+        preview_lines = docx_preview(output_path)
 
         return {
             "ok": True,
             "jobId": job_id,
             "inputName": filename,
             "outputName": output_name,
+            "outputPath": str(output_path),
             "downloadUrl": f"/outputs/{job_id}/{output_name}",
             "summary": summary,
+            "preview": {
+                "lines": preview_lines,
+                "truncated": len(preview_lines) >= PREVIEW_PARAGRAPH_LIMIT,
+            },
             "steps": logger.steps,
             "terminal": logger.terminal,
         }

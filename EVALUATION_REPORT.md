@@ -1,72 +1,39 @@
 # Evaluation Report
 
-## Scope
+Kartikeya Mishra — Scaler PII Redaction assignment
 
-This run evaluated the rule-based detector in `redact_pii.py`. The script uses regexes for structured PII and context rules for the more ambiguous categories (names, addresses and DOBs). It creates deterministic fake replacements so a repeated source value is replaced consistently in one document.
+## What I measured
 
-The project now also includes a hybrid ML/NER mode. Hybrid mode keeps the rule-based detectors for structured identifiers and adds spaCy `en_core_web_sm` for extra PERSON/ORG recall in unlabelled prose.
+I evaluate two layers:
 
-## Controlled evaluation set
+1. **Rules** in `redact_pii.py` — regex + context for structured / labelled PII, with stable fake replacements.  
+2. **Hybrid** — same rules plus spaCy `en_core_web_sm` when I turn on `--mode hybrid` (or ML / NER in the local UI).
 
-The reproducible `--evaluate` test suite contains 14 labelled cases: 10 positive PII-type assertions covering every required category and four negative controls (an offer date, a corporate ID, an order number and a business phrase). The result was:
+I’m not pretending the unit scores below equal “perfect on every page of the prospectus.” They’re for a fixed labelled suite I control.
 
-| Metric | Result |
+## Controlled suite (`python redact_pii.py --evaluate`)
+
+Fourteen cases I wrote myself: positives for each required PII type, and four negatives (offer date, CIN-style id, order id, generic lead-manager phrasing).
+
+| Metric | Value |
 | --- | ---: |
-| True positives | 10 |
-| False positives | 0 |
-| False negatives | 0 |
-| True negatives | 4 |
-| Accuracy | 100.0% |
-| Precision | 100.0% |
-| Recall | 100.0% |
+| TP | 10 |
+| FP | 0 |
+| FN | 0 |
+| TN | 4 |
+| Accuracy | 100% |
+| Precision | 100% |
+| Recall | 100% |
 
-This is a targeted unit-level result, not a claim that the same figures apply to every page of the prospectus. A production evaluation should add a reviewer-labelled, stratified sample of the actual document, including names without labels and multi-line addresses.
+## Prospectus
 
-## Prospectus run
+Rules pass over the Red Herring Prospectus produced (latest log): 229 changed paragraphs, 347 replacements, 174 unique source strings. Counts were dominated by company / email / name / address / phone. That file didn’t surface SSN, Luhn card, labelled DOB, or IPv4 for me; those categories still clear the controlled suite.
 
-The supplied **Red Herring Prospectus** was processed successfully. The latest local run changed 229 paragraphs and made 347 redactions across 174 unique source values.
+## Other proofs I keep in the repo
 
-| PII type detected in this document | Occurrences |
-| --- | ---: |
-| Addresses | 48 |
-| Company names | 169 |
-| Email addresses | 50 |
-| Names | 62 |
-| Phone numbers | 18 |
-| **Total** | **347** |
+- `generic_docx_test.py` — ticket, HR table+header/footer, run-split contact note. Seeded PII removed; control IDs kept.  
+- `ml_ner_test.py` — Rules: 2 hits (email+phone). Hybrid: 5 (adds Alice Johnson, Robert Chen, Microsoft). Control ticket id stays.
 
-No SSNs, Luhn-valid credit-card numbers, DOB-labelled dates or IPv4 addresses were detected in this prospectus. Those categories are nevertheless covered by the controlled evaluation set.
+## Honest limits
 
-## Generic DOCX regression suite
-
-To verify the tool is not tuned only for the supplied prospectus, `generic_docx_test.py` generates and redacts three unrelated `.docx` files:
-
-| Scenario | Structure covered | Result |
-| --- | --- | --- |
-| Customer support ticket | Ordinary paragraphs with US-style phone, address, DOB, SSN, card, IP, company and email | Passed |
-| HR table with header/footer | Table label/value cells plus header/footer PII | Passed |
-| Run-split contact note | PII split across Word runs, plus labelled values | Passed |
-
-The latest run removed all seeded original PII values and retained all non-PII control values. Its JSON evidence is written to `examples/generic_regression/generic_docx_report.json`.
-
-## ML / NER mode comparison
-
-`ml_ner_test.py` verifies that the ML/NER switch changes real behaviour rather than just changing UI labels. It generates a DOCX containing unlabelled prose:
-
-- `Alice Johnson`
-- `Robert Chen`
-- `Microsoft`
-- plus structured email and phone values
-
-The latest run produced:
-
-| Mode | Redactions | Behaviour |
-| --- | ---: | --- |
-| Rules | 2 | Redacted only structured email + phone; left unlabelled names/org in place. |
-| Hybrid ML/NER | 5 | Redacted email + phone plus two PERSON entities and one ORG entity. |
-
-The hybrid output removed all seeded PII values and retained the non-PII control ticket ID. Its JSON evidence is written to `examples/ml_ner/ml_ner_report.json`.
-
-## Precision/recall judgement and follow-up
-
-Structured PII should have high recall when it matches the implemented formats. The current implementation now supports prose-style labels, adjacent table label/value layouts, and optional pretrained NER for unlabelled people/organisations. Free-form names, informal company names and addresses remain the main recall risk because broad redaction of capitalised text would reduce precision. The address rule may have false positives where a paragraph contains both a postal code and a location/street word. For a final production release, I would have a reviewer label a sample of redacted and unredacted paragraphs across many document families, calculate document-level precision/recall from that gold set, and train/tune a domain-specific NER model or extend custom dictionaries for missed entities.
+Structured patterns are strong when format matches. Bare names and weird addresses are where recall drops if you stay rules-only; hybrid helps but can still miss domain legalese, and loosening NER too much would trash precision. Next step for real production would be a human-labelled sample from actual docs, then retune — not just ship the stock spaCy model and call it done.

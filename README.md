@@ -35,6 +35,15 @@ python web_app.py
 
 Then open `http://127.0.0.1:8000/`, upload a `.docx`, click **Run redaction**, and download the generated redacted DOCX. The workflow and terminal are populated from the actual backend response.
 
+## Hugging Face Space
+
+The public demo is deployed here:
+
+- https://huggingface.co/spaces/Kartikeym2007/Redact
+- Direct app URL: https://kartikeym2007-redact.static.hf.space/index.html
+
+The Hugging Face version lives in `hf_static/`. It is a browser-side static Space: it previews the uploaded DOCX, redacts DOCX XML in the browser, shows the redacted result preview, and generates a downloadable redacted DOCX without sending the file to a Python server.
+
 The script detects email addresses, phones, names in identifying contexts (or with a title), organisation names with legal suffixes, mailing addresses, SSNs, Luhn-valid credit cards, DOB-labelled dates and IPv4 addresses. Each unique source value receives the same fake replacement throughout one run.
 
 ## Trade-offs

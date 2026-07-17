@@ -38,6 +38,10 @@ python web_app.py
 
 Then open `http://127.0.0.1:8000/`, choose **Rules** or **ML / NER**, upload a `.docx`, click **Run redaction**, and download the generated redacted DOCX. The workflow and terminal are populated from the actual backend response.
 
+The screenshot below is from a verified local ML / NER run. The uploaded fixture contains unlabelled prose entities (`Alice Johnson`, `Robert Chen`, `Microsoft`); hybrid mode redacts them using spaCy NER while also redacting structured email and phone values.
+
+![Verified local ML/NER frontend run](assets/ml-ner-ui-verified.png)
+
 ## Hugging Face Space
 
 The public demo is deployed here:

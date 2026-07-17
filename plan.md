@@ -120,6 +120,7 @@ The optional `--mapping mapping.json` argument writes the original-to-fake mappi
 4. Confirm the output remains a readable one-page DOCX fixture.
 5. Review the screenshot embedded in `README.md`, which is generated from the local redacted test document contents.
 6. Use the web UI upload panel to process both the manual fixture and the supplied Red Herring Prospectus, confirming the terminal and workflow steps match the backend response.
+7. Use the local web UI in **ML / NER** mode with `examples/ml_ner/unlabelled_entities.docx`, confirming the summary reports `Mode ML / NER`, five total redactions, and a downloadable result.
 
 ### Prospectus-specific verification
 
@@ -143,4 +144,5 @@ The prospectus run preserved 1,006 top-level paragraphs and 76 tables. Structura
 - [x] Generic multi-document regression suite added and run.
 - [x] ML/NER mode switch added and tested.
 - [x] Manual screenshot evidence captured from the locally redacted test output.
+- [x] ML/NER frontend screenshot evidence captured from a verified local browser run.
 - [x] Local frontend added and browser-tested with real DOCX uploads.

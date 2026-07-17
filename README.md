@@ -65,7 +65,7 @@ python web_app.py
 
 Open `http://127.0.0.1:8000/`, choose **Rules** or **ML / NER**, upload a `.docx`, run redaction, preview the result, and download the generated redacted DOCX.
 
-The live Hugging Face link is a static browser demo. The full Python backend, including spaCy ML/NER mode, is available through the local frontend and CLI.
+> **Note:** The live Hugging Face Space is a free **static** browser demo, so **ML / NER is disabled there**. Use **Rules** on the live Space. The full Python backend (Rules + spaCy **ML / NER**) is available through the local frontend and CLI.
 
 ## Frontend screenshots
 

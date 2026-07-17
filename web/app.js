@@ -135,21 +135,46 @@ async function runRedaction() {
   renderWorkflow();
   renderSummary(null);
   renderPreviews(null);
-  terminal.textContent = `Starting local redaction request with ${selectedMode === "hybrid" ? "ML / NER hybrid" : "rules"} mode...`;
+  terminal.textContent = `Starting redaction request with ${selectedMode === "hybrid" ? "ML / NER hybrid" : "rules"} mode...`;
   downloadLink.classList.add("hidden");
   runButton.disabled = true;
   setNode("upload", "running", "Browser is sending the selected DOCX.");
+  if (selectedMode === "hybrid") {
+    line("ML / NER on large DOCX needs more RAM. Free hosts may fail — Rules is safer for big files.");
+  }
+  line("Large documents can take 1–3 minutes. Keep this tab open.");
 
   const formData = new FormData();
   formData.append("document", state.file);
   formData.append("mode", selectedMode);
+
+  const heartbeat = setInterval(() => {
+    line("Still working on the server…");
+    setNode("upload", "running", "Server is still processing the DOCX.");
+  }, 20000);
 
   try {
     const response = await fetch("/api/redact", {
       method: "POST",
       body: formData,
     });
-    const data = await response.json();
+    const raw = await response.text();
+    let data = null;
+    try {
+      data = raw ? JSON.parse(raw) : null;
+    } catch {
+      throw new Error(
+        `Server returned a non-JSON response (HTTP ${response.status}). ` +
+          "On free Render this usually means the process ran out of memory or timed out. " +
+          "Try Rules mode, or a smaller DOCX for ML / NER."
+      );
+    }
+    if (!data) {
+      throw new Error(
+        `Empty response from server (HTTP ${response.status}). ` +
+          "Likely out-of-memory or timeout on free hosting. Try Rules mode or a smaller file."
+      );
+    }
     if (!response.ok || !data.ok) {
       throw new Error(data.error || `HTTP ${response.status}`);
     }
@@ -168,6 +193,7 @@ async function runRedaction() {
     setNode("upload", "error", error.message);
     line(`ERROR: ${error.message}`);
   } finally {
+    clearInterval(heartbeat);
     runButton.disabled = !state.file;
   }
 }

@@ -24,6 +24,7 @@ const uploadedMeta = document.querySelector("#uploadedMeta");
 const uploadedPreview = document.querySelector("#uploadedPreview");
 const resultMeta = document.querySelector("#resultMeta");
 const resultPreview = document.querySelector("#resultPreview");
+const changesList = document.querySelector("#changesList");
 
 function timestamp() {
   return new Date().toLocaleTimeString();
@@ -60,6 +61,21 @@ function previewText(lines, max = 48) {
   return visible.length ? `${visible.join("\n")}${suffix}` : "No paragraph text was extracted from this DOCX.";
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function compactSnippet(value, max = 260) {
+  const normalized = String(value).replace(/\s+/g, " ").trim();
+  if (normalized.length <= max) return normalized;
+  return `${normalized.slice(0, max - 1)}…`;
+}
+
 function renderSummary(counts, changedNodes) {
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   const items = [
@@ -78,6 +94,38 @@ function renderSummary(counts, changedNodes) {
   `).join("");
 }
 
+function renderChanges(changes, changedNodes) {
+  if (!changes.length) {
+    changesList.innerHTML = `
+      <div class="changes-empty">
+        No changed snippets were detected in this run. Try a DOCX containing names, emails, phone numbers,
+        addresses, SSNs, cards, DOBs, IPs, or company names.
+      </div>
+    `;
+    return;
+  }
+
+  const hidden = Math.max(0, changedNodes - changes.length);
+  changesList.innerHTML = `
+    <div class="changes-count">
+      Showing ${changes.length} changed text node${changes.length === 1 ? "" : "s"}${hidden ? ` (${hidden} more in the DOCX)` : ""}.
+    </div>
+    ${changes.map((change, index) => `
+      <article class="change-card">
+        <div class="change-number">#${index + 1}</div>
+        <div class="change-pair">
+          <span class="change-label before">Before</span>
+          <code>${escapeHtml(compactSnippet(change.before))}</code>
+        </div>
+        <div class="change-pair">
+          <span class="change-label after">After</span>
+          <code>${escapeHtml(compactSnippet(change.after))}</code>
+        </div>
+      </article>
+    `).join("")}
+  `;
+}
+
 function selectFile(file) {
   state.file = file || null;
   downloadLink.classList.add("hidden");
@@ -86,6 +134,7 @@ function selectFile(file) {
   uploadedPreview.textContent = state.file ? "Click Run redaction to extract the uploaded DOCX preview." : "Upload a DOCX to see the original text preview here.";
   resultPreview.textContent = "Run redaction to see the redacted output preview here.";
   summary.innerHTML = '<div class="summary-empty">No run yet.</div>';
+  renderChanges([], 0);
   if (!state.file) {
     fileCard.textContent = "No file selected";
     runButton.disabled = true;
@@ -115,6 +164,11 @@ function luhn(value) {
   return digits.length >= 13 && total % 10 === 0;
 }
 
+function markFound(counts, type, hitTypes) {
+  counts[type] = (counts[type] || 0) + 1;
+  if (hitTypes) hitTypes.add(type);
+}
+
 function replacement(type, value) {
   const id = key(type, value);
   if (replacements.has(id)) return replacements.get(id);
@@ -133,7 +187,7 @@ function replacement(type, value) {
   return fake;
 }
 
-function detectAndReplace(text, counts) {
+function detectAndReplace(text, counts, hitTypes = null) {
   const patterns = [
     ["email", /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi],
     ["ssn", /\b\d{3}-\d{2}-\d{4}\b/g],
@@ -148,14 +202,14 @@ function detectAndReplace(text, counts) {
   for (const [type, pattern] of patterns) {
     output = output.replace(pattern, (match) => {
       if (type === "phone" && match.replace(/\D/g, "").length < 10) return match;
-      counts[type] = (counts[type] || 0) + 1;
+      markFound(counts, type, hitTypes);
       if (type === "dob") return match.replace(/\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/, replacement(type, match));
       return replacement(type, match);
     });
   }
   output = output.replace(/\b(?:\d[ -]?){13,19}\b/g, (match) => {
     if (!luhn(match)) return match;
-    counts.card = (counts.card || 0) + 1;
+    markFound(counts, "card", hitTypes);
     return replacement("card", match);
   });
   return output;
@@ -184,6 +238,7 @@ async function runRedaction() {
   runButton.disabled = true;
   const counts = {};
   let changedNodes = 0;
+  const changes = [];
 
   try {
     setNode("load", "running", "Reading uploaded DOCX archive.");
@@ -205,10 +260,18 @@ async function runRedaction() {
       const doc = new DOMParser().parseFromString(xml, "application/xml");
       for (const node of [...doc.getElementsByTagName("w:t")]) {
         const original = node.textContent;
-        const replaced = detectAndReplace(original, counts);
+        const hitTypes = new Set();
+        const replaced = detectAndReplace(original, counts, hitTypes);
         if (replaced !== original) {
           node.textContent = replaced;
           changedNodes += 1;
+          if (changes.length < 50) {
+            changes.push({
+              before: original,
+              after: replaced,
+              types: [...hitTypes],
+            });
+          }
         }
       }
       const serialized = new XMLSerializer().serializeToString(doc);
@@ -233,6 +296,7 @@ async function runRedaction() {
     setNode("download", "done", outputName);
 
     renderSummary(counts, changedNodes);
+    renderChanges(changes, changedNodes);
     document.querySelector(".preview-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
     log(`Redaction completed with ${Object.values(counts).reduce((a, b) => a + b, 0)} replacements.`);
   } catch (error) {
@@ -266,3 +330,4 @@ dropzone.addEventListener("drop", (event) => {
 });
 
 renderWorkflow();
+renderChanges([], 0);

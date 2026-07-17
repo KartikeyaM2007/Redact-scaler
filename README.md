@@ -42,7 +42,7 @@ The public demo is deployed here:
 - https://huggingface.co/spaces/Kartikeym2007/Redact
 - Direct app URL: https://kartikeym2007-redact.static.hf.space/index.html
 
-The Hugging Face version lives in `hf_static/`. It is a browser-side static Space: it previews the uploaded DOCX, redacts DOCX XML in the browser, shows the redacted result preview, and generates a downloadable redacted DOCX without sending the file to a Python server.
+The Hugging Face version lives in `hf_static/`. It is a browser-side static Space: it previews the uploaded DOCX, redacts DOCX XML in the browser, shows the redacted result preview, lists exact **Changed Snippets** with before/after evidence, and generates a downloadable redacted DOCX without sending the file to a Python server. For long prospectus files, the top of the preview can still look unchanged if the first page contains only title/legal text; the changed-snippet panel and summary counts show the actual redactions found later in the document.
 
 The script detects email addresses, phones, names in identifying contexts (or with a title), organisation names with legal suffixes, mailing addresses, SSNs, Luhn-valid credit cards, DOB-labelled dates and IPv4 addresses. Each unique source value receives the same fake replacement throughout one run.
 

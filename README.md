@@ -67,6 +67,8 @@ Open `http://127.0.0.1:8000/`, choose **Rules** or **ML / NER**, upload a `.docx
 
 > **Note:** The live Hugging Face Space is a free **static** browser demo, so **ML / NER is disabled there**. Use **Rules** on the live Space. The full Python backend (Rules + spaCy **ML / NER**) is available through the local frontend and CLI.
 
+For the fuller write-up (Rules vs ML, screenshots, metrics, trade-offs), see [`SUBMISSION.md`](SUBMISSION.md).
+
 ## Frontend screenshots
 
 Rules mode redacts the structured email and phone number while leaving unlabelled prose entities unchanged:

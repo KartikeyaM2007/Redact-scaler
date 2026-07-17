@@ -1,0 +1,7 @@
+.git/
+__pycache__/
+*.pyc
+web_outputs/
+qa_render/
+qa_render_manual/
+PII_Redaction_Submission.zip

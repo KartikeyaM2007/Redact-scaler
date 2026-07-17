@@ -15,6 +15,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 import cgi
 import json
 import mimetypes
+import os
 import re
 import time
 import uuid
@@ -25,14 +26,14 @@ from urllib.parse import unquote, urlparse
 
 from docx import Document
 
-from redact_pii import redact_docx
+from redact_pii import iter_paragraphs, redact_docx
 
 
 ROOT = Path(__file__).resolve().parent
 WEB_ROOT = ROOT / "web"
 OUTPUT_ROOT = ROOT / "web_outputs"
 MAX_UPLOAD_BYTES = 40 * 1024 * 1024
-PREVIEW_PARAGRAPH_LIMIT = 36
+PREVIEW_LINE_LIMIT = 48
 
 
 def safe_filename(name: str) -> str:
@@ -45,16 +46,23 @@ def safe_filename(name: str) -> str:
     return cleaned
 
 
-def docx_preview(path: Path, limit: int = PREVIEW_PARAGRAPH_LIMIT) -> list[str]:
+def docx_preview(path: Path, limit: int = PREVIEW_LINE_LIMIT) -> dict:
     document = Document(path)
     lines: list[str] = []
-    for paragraph in document.paragraphs:
+    total_non_empty = 0
+    for paragraph in iter_paragraphs(document):
         text = paragraph.text.strip()
         if text:
-            lines.append(text)
+            total_non_empty += 1
+            if len(lines) < limit:
+                lines.append(text)
         if len(lines) >= limit:
-            break
-    return lines
+            continue
+    return {
+        "lines": lines,
+        "totalLines": total_non_empty,
+        "truncated": total_non_empty > len(lines),
+    }
 
 
 class StepLogger:
@@ -165,6 +173,7 @@ class RedactionHandler(SimpleHTTPRequestHandler):
 
         Document(input_path)
         logger.step("validate", "DOCX validated", "done", "python-docx opened the uploaded file successfully.")
+        input_preview = docx_preview(input_path)
 
         start = time.perf_counter()
         summary = redact_docx(input_path, output_path)
@@ -181,7 +190,7 @@ class RedactionHandler(SimpleHTTPRequestHandler):
             raise ValueError("Redaction finished but no output DOCX was created.")
         logger.step("output", "Output DOCX ready", "done", str(output_path))
         logger.step("download", "Download prepared", "done", f"/outputs/{job_id}/{output_name}")
-        preview_lines = docx_preview(output_path)
+        output_preview = docx_preview(output_path)
 
         return {
             "ok": True,
@@ -191,10 +200,8 @@ class RedactionHandler(SimpleHTTPRequestHandler):
             "outputPath": str(output_path),
             "downloadUrl": f"/outputs/{job_id}/{output_name}",
             "summary": summary,
-            "preview": {
-                "lines": preview_lines,
-                "truncated": len(preview_lines) >= PREVIEW_PARAGRAPH_LIMIT,
-            },
+            "uploadedPreview": input_preview,
+            "resultPreview": output_preview,
             "steps": logger.steps,
             "terminal": logger.terminal,
         }
@@ -236,8 +243,10 @@ class RedactionHandler(SimpleHTTPRequestHandler):
 
 def main() -> None:
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
-    server = ThreadingHTTPServer(("127.0.0.1", 8000), RedactionHandler)
-    print("PII Redaction Web UI running at http://127.0.0.1:8000/")
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", "8000"))
+    server = ThreadingHTTPServer((host, port), RedactionHandler)
+    print(f"PII Redaction Web UI running at http://{host}:{port}/")
     server.serve_forever()
 
 

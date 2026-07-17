@@ -19,7 +19,7 @@
       <section class="workspace">
         <aside class="upload-panel">
           <h2>Upload DOCX</h2>
-          <p>Choose a Word document. The backend will run the real `redact_docx` function and return a redacted file.</p>
+          <p>Choose a Word document. The backend runs the real redaction engine and returns a redacted file.</p>
           <label class="dropzone" id="dropzone">
             <input id="fileInput" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
             <span class="drop-title">Drop a .docx here</span>
@@ -56,13 +56,33 @@
           </div>
         </section>
 
-        <section class="result-panel">
+        <section class="preview-panel">
           <div class="panel-heading">
-            <h2>Result Preview</h2>
-            <p>Text extracted from the generated redacted DOCX.</p>
+            <h2>Document Previews</h2>
+            <p>Left is the uploaded DOCX. Right is the generated redacted DOCX.</p>
           </div>
-          <div id="resultMeta" class="result-meta">No redacted document yet.</div>
-          <pre id="resultPreview">Upload a DOCX and run redaction to see the output here.</pre>
+          <div class="preview-grid">
+            <article class="doc-preview">
+              <div class="preview-header">
+                <div>
+                  <span class="preview-kicker">Uploaded</span>
+                  <h3>Original document</h3>
+                </div>
+                <span id="uploadedMeta" class="preview-count">Waiting</span>
+              </div>
+              <pre id="uploadedPreview">Upload a DOCX to see the original text preview here.</pre>
+            </article>
+            <article class="doc-preview result">
+              <div class="preview-header">
+                <div>
+                  <span class="preview-kicker">Result</span>
+                  <h3>Redacted document</h3>
+                </div>
+                <span id="resultMeta" class="preview-count">Waiting</span>
+              </div>
+              <pre id="resultPreview">Run redaction to see the redacted output preview here.</pre>
+            </article>
+          </div>
         </section>
       </section>
     </main>

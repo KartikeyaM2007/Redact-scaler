@@ -21,6 +21,8 @@ const terminal = document.querySelector("#terminal");
 const summary = document.querySelector("#summary");
 const downloadLink = document.querySelector("#downloadLink");
 const serviceStatus = document.querySelector("#serviceStatus");
+const uploadedMeta = document.querySelector("#uploadedMeta");
+const uploadedPreview = document.querySelector("#uploadedPreview");
 const resultMeta = document.querySelector("#resultMeta");
 const resultPreview = document.querySelector("#resultPreview");
 
@@ -74,24 +76,35 @@ function renderSummary(data) {
   `).join("");
 }
 
-function renderResult(data) {
+function formatPreview(preview, emptyText) {
+  if (!preview) return emptyText;
+  const lines = preview.lines || [];
+  const suffix = preview.truncated
+    ? `\n\n... showing ${lines.length} of ${preview.totalLines} text lines. Download the DOCX for the full document.`
+    : "";
+  return lines.length ? `${lines.join("\n")}${suffix}` : "No paragraph text was extracted from this DOCX.";
+}
+
+function renderPreviews(data) {
   if (!data) {
-    resultMeta.textContent = "No redacted document yet.";
-    resultPreview.textContent = "Upload a DOCX and run redaction to see the output here.";
+    uploadedMeta.textContent = state.file ? "Selected" : "Waiting";
+    uploadedPreview.textContent = state.file
+      ? "Click Run redaction to extract the uploaded DOCX preview."
+      : "Upload a DOCX to see the original text preview here.";
+    resultMeta.textContent = "Waiting";
+    resultPreview.textContent = "Run redaction to see the redacted output preview here.";
     return;
   }
-  resultMeta.textContent = `Output: ${data.outputPath} | Download: ${data.downloadUrl}`;
-  const lines = data.preview?.lines || [];
-  const suffix = data.preview?.truncated ? "\n\n... preview truncated. Download the DOCX for the full result." : "";
-  resultPreview.textContent = lines.length
-    ? `${lines.join("\n")}${suffix}`
-    : "The redacted DOCX was generated, but no paragraph text was extracted for preview.";
+  uploadedMeta.textContent = `${data.uploadedPreview.totalLines} lines`;
+  resultMeta.textContent = `${data.resultPreview.totalLines} lines`;
+  uploadedPreview.textContent = formatPreview(data.uploadedPreview, "No uploaded preview available.");
+  resultPreview.textContent = formatPreview(data.resultPreview, "No result preview available.");
 }
 
 function selectFile(file) {
   state.file = file || null;
   downloadLink.classList.add("hidden");
-  renderResult(null);
+  renderPreviews(null);
   if (!state.file) {
     fileCard.textContent = "No file selected";
     runButton.disabled = true;
@@ -118,7 +131,7 @@ async function runRedaction() {
   state.steps.clear();
   renderWorkflow();
   renderSummary(null);
-  renderResult(null);
+  renderPreviews(null);
   terminal.textContent = "Starting local redaction request...";
   downloadLink.classList.add("hidden");
   runButton.disabled = true;
@@ -141,7 +154,8 @@ async function runRedaction() {
     }
     terminal.textContent = data.terminal.join("\n");
     renderSummary(data);
-    renderResult(data);
+    renderPreviews(data);
+    document.querySelector(".preview-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
     downloadLink.href = data.downloadUrl;
     downloadLink.textContent = `Download ${data.outputName}`;
     downloadLink.classList.remove("hidden");

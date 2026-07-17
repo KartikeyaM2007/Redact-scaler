@@ -1,6 +1,6 @@
 :root {
   color-scheme: light;
-  --bg: #f3f6fb;
+  --bg: #eef3f8;
   --panel: #ffffff;
   --text: #162033;
   --muted: #607089;
@@ -93,9 +93,9 @@ p {
   grid-template-columns: 320px 1fr;
   grid-template-areas:
     "upload workflow"
+    "upload preview"
     "upload terminal"
-    "summary summary"
-    "result result";
+    "summary summary";
   gap: 16px;
 }
 
@@ -103,7 +103,7 @@ p {
 .workflow-panel,
 .terminal-panel,
 .summary-panel,
-.result-panel {
+.preview-panel {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
@@ -130,8 +130,8 @@ p {
   padding: 18px;
 }
 
-.result-panel {
-  grid-area: result;
+.preview-panel {
+  grid-area: preview;
   padding: 18px;
 }
 
@@ -324,23 +324,69 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
-.result-meta {
+.preview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.doc-preview {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fbfdff;
-  color: var(--muted);
-  font-size: 13px;
-  margin: 16px 0 12px;
-  overflow-wrap: anywhere;
-  padding: 12px;
+  overflow: hidden;
 }
 
+.doc-preview.result {
+  border-color: #abd9c1;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  background: #ffffff;
+  padding: 14px 16px;
+}
+
+.preview-kicker {
+  display: block;
+  color: var(--accent-dark);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.preview-header h3 {
+  margin: 3px 0 0;
+  font-size: 17px;
+}
+
+.preview-count {
+  border-radius: 999px;
+  background: #edf3fb;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+
+.doc-preview.result .preview-count {
+  background: #def7e9;
+  color: var(--success);
+}
+
+#uploadedPreview,
 #resultPreview {
-  min-height: 260px;
-  max-height: 460px;
+  min-height: 320px;
+  max-height: 520px;
   overflow: auto;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 0;
   background: #f8fbff;
   color: #1d2a3d;
   font-family: "Cascadia Mono", Consolas, monospace;
@@ -349,6 +395,7 @@ button:disabled {
   margin: 0;
   padding: 16px;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .summary-grid {
@@ -384,13 +431,14 @@ button:disabled {
     grid-template-areas:
       "upload"
       "workflow"
+      "preview"
       "terminal"
-      "summary"
-      "result";
+      "summary";
   }
 
   .workflow,
-  .summary-grid {
+  .summary-grid,
+  .preview-grid {
     grid-template-columns: 1fr;
   }
 

@@ -1,3 +1,10 @@
+---
+title: PII Redaction Workflow
+sdk: docker
+app_port: 7860
+license: mit
+---
+
 # PII Redaction Tool
 
 `redact_pii.py` reads a DOCX, detects common personally identifiable information, and writes a DOCX with consistent fake replacements. It uses standard-library regular expressions plus context rules for names, dates of birth and addresses; `python-docx` preserves the source document's paragraph, table, header and footer structure.

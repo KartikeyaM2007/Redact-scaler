@@ -15,6 +15,7 @@ The goal is to retain a readable document while replacing detected sensitive val
 | `README.md` | Setup, usage, examples, trade-offs, and an actual manual-test screenshot. |
 | `EVALUATION_REPORT.md` | Reproducible controlled metrics and document-run summary. |
 | `manual_test.py` | End-to-end local regression test covering all required PII types. |
+| `web_app.py` and `web/` | Real local browser UI with upload panel, terminal log, workflow nodes, and download link. |
 | `examples/` and `assets/` | Test input, redacted test output, JSON report, and README PNG visual evidence. |
 | `PII_Redaction_Submission.zip` | Submission-ready archive of the required deliverables. |
 
@@ -62,6 +63,14 @@ The program makes one initial pass to learn high-confidence names and company na
    python manual_test.py
    ```
 
+5. Run the local web UI:
+
+   ```powershell
+   python web_app.py
+   ```
+
+   Open `http://127.0.0.1:8000/`, upload a `.docx`, and download the redacted result.
+
 The optional `--mapping mapping.json` argument writes the original-to-fake mapping. This is sensitive operational data and must not be included in a submission or shared with recipients of the redacted file.
 
 ## 5. Testing and verification strategy
@@ -79,6 +88,7 @@ The optional `--mapping mapping.json` argument writes the original-to-fake mappi
 3. Confirm the non-PII offer date is unchanged.
 4. Confirm the output remains a readable one-page DOCX fixture.
 5. Review the screenshot embedded in `README.md`, which is generated from the local redacted test document contents.
+6. Use the web UI upload panel to process both the manual fixture and the supplied Red Herring Prospectus, confirming the terminal and workflow steps match the backend response.
 
 ### Prospectus-specific verification
 
@@ -100,3 +110,4 @@ The prospectus run preserved 1,006 top-level paragraphs and 76 tables. Structura
 - [x] Evaluation report includes accuracy, precision, and recall.
 - [x] Local end-to-end test added and run.
 - [x] Manual screenshot evidence captured from the locally redacted test output.
+- [x] Local frontend added and browser-tested with real DOCX uploads.

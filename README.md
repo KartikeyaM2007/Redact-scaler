@@ -18,6 +18,16 @@ python redact_pii.py --evaluate
 python manual_test.py
 ```
 
+## Web UI
+
+The project now includes a real local browser UI with a DOCX upload panel, terminal log, and n8n-style workflow nodes. It calls the same `redact_docx` backend used by the command-line script.
+
+```powershell
+python web_app.py
+```
+
+Then open `http://127.0.0.1:8000/`, upload a `.docx`, click **Run redaction**, and download the generated redacted DOCX. The workflow and terminal are populated from the actual backend response.
+
 The script detects email addresses, phones, names in identifying contexts (or with a title), organisation names with legal suffixes, mailing addresses, SSNs, Luhn-valid credit cards, DOB-labelled dates and IPv4 addresses. Each unique source value receives the same fake replacement throughout one run.
 
 ## Trade-offs

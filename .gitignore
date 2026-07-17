@@ -3,3 +3,4 @@ __pycache__/
 ~$*.docx
 qa_render/
 qa_render_manual/
+web_outputs/

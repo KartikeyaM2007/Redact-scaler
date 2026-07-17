@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PII Redaction Workflow</title>
+    <link rel="stylesheet" href="/web/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <p class="eyebrow">Local DOCX redaction</p>
+          <h1>PII Redaction Workflow</h1>
+        </div>
+        <div class="status-pill" id="serviceStatus">Checking backend...</div>
+      </section>
+
+      <section class="workspace">
+        <aside class="upload-panel">
+          <h2>Upload DOCX</h2>
+          <p>Choose a Word document. The backend will run the real `redact_docx` function and return a redacted file.</p>
+          <label class="dropzone" id="dropzone">
+            <input id="fileInput" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+            <span class="drop-title">Drop a .docx here</span>
+            <span class="drop-subtitle">or click to browse</span>
+          </label>
+          <div class="file-card" id="fileCard">No file selected</div>
+          <button id="runButton" type="button" disabled>Run redaction</button>
+          <a id="downloadLink" class="download-link hidden" href="#">Download redacted DOCX</a>
+        </aside>
+
+        <section class="workflow-panel">
+          <div class="panel-heading">
+            <h2>Workflow</h2>
+            <p>Each node is updated from the actual backend response.</p>
+          </div>
+          <div class="workflow" id="workflow"></div>
+        </section>
+
+        <section class="terminal-panel">
+          <div class="panel-heading">
+            <h2>Terminal</h2>
+            <p>Real request and redaction logs appear here.</p>
+          </div>
+          <pre id="terminal" aria-live="polite">Waiting for a DOCX upload...</pre>
+        </section>
+
+        <section class="summary-panel">
+          <div class="panel-heading">
+            <h2>Run Summary</h2>
+            <p>Counts are returned by the Python redaction engine.</p>
+          </div>
+          <div id="summary" class="summary-grid">
+            <div class="summary-empty">No run yet.</div>
+          </div>
+        </section>
+      </section>
+    </main>
+    <script src="/web/app.js"></script>
+  </body>
+</html>

@@ -116,8 +116,7 @@ def _load_spacy_model():
             "`python -m spacy download en_core_web_sm`."
         ) from exc
     try:
-        # Disable unused pipes to reduce RAM/CPU on small free-tier hosts.
-        return spacy.load("en_core_web_sm", exclude=["parser", "lemmatizer"])
+        return spacy.load("en_core_web_sm")
     except OSError as exc:
         raise RuntimeError(
             "Hybrid ML/NER mode requires the spaCy model `en_core_web_sm`. "

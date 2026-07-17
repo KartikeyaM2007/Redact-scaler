@@ -23,6 +23,7 @@ The test fixture starts with values such as `Rashi Patil`, `rashi.patil@example.
 python redact_pii.py "C:\path\to\Red Herring Prospectus.docx" ".\Red Herring Prospectus - Redacted.docx"
 python redact_pii.py --evaluate
 python manual_test.py
+python generic_docx_test.py
 ```
 
 ## Web UI
@@ -44,7 +45,7 @@ The public demo is deployed here:
 
 The Hugging Face version lives in `hf_static/`. It is a browser-side static Space: it previews the uploaded DOCX, redacts DOCX XML in the browser, shows the redacted result preview, lists exact **Changed Snippets** with before/after evidence, and generates a downloadable redacted DOCX without sending the file to a Python server. For long prospectus files, the top of the preview can still look unchanged if the first page contains only title/legal text; the changed-snippet panel and summary counts show the actual redactions found later in the document.
 
-The script detects email addresses, phones, names in identifying contexts (or with a title), organisation names with legal suffixes, mailing addresses, SSNs, Luhn-valid credit cards, DOB-labelled dates and IPv4 addresses. Each unique source value receives the same fake replacement throughout one run.
+The script detects email addresses, phones, names in identifying contexts (or with a title), organisation names with legal suffixes, mailing addresses, SSNs, Luhn-valid credit cards, DOB-labelled dates and IPv4 addresses. It also learns common label/value layouts such as `Full Name | Marcus Hill` or `Birth Date | 7 Jan 1992`, which appear frequently in arbitrary Word tables and ticket exports. Each unique source value receives the same fake replacement throughout one run.
 
 ## Trade-offs
 
@@ -55,5 +56,7 @@ Regex/context rules are transparent and easy to extend, but they cannot match ev
 The included deterministic test suite covers every required PII type and several non-PII controls. Run `--evaluate` to reproduce its accuracy, precision and recall. The accompanying report distinguishes these controlled metrics from document-wide performance, which requires a manually labelled gold set.
 
 `manual_test.py` is an end-to-end regression test: it generates a DOCX fixture, runs the actual redactor, checks that every seeded original PII value has been removed, and confirms a non-PII date remains. It writes its evidence to `examples/manual_test_report.json`.
+
+`generic_docx_test.py` adds a broader regression suite so the solution is not tuned to the supplied prospectus. It generates multiple unrelated DOCX files, including a support ticket, a table-based HR form with header/footer PII, and a run-split contact note, then verifies seeded originals are removed and control values remain. It writes evidence to `examples/generic_regression/generic_docx_report.json`.
 
 For the complete project overview, use case, test procedure, architecture, and future improvements, see [plan.md](plan.md).

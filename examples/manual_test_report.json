@@ -9,7 +9,7 @@
     "dob": 1,
     "email": 1,
     "ip": 1,
-    "name": 2,
+    "name": 4,
     "phone": 1,
     "ssn": 1
   },

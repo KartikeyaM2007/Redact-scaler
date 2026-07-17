@@ -15,6 +15,7 @@ The goal is to retain a readable document while replacing detected sensitive val
 | `README.md` | Setup, usage, examples, trade-offs, and an actual manual-test screenshot. |
 | `EVALUATION_REPORT.md` | Reproducible controlled metrics and document-run summary. |
 | `manual_test.py` | End-to-end local regression test covering all required PII types. |
+| `generic_docx_test.py` | Multi-document regression test covering arbitrary DOCX layouts, tables, headers/footers, and split runs. |
 | `web_app.py` and `web/` | Real local browser UI with upload panel, terminal log, workflow nodes, and download link. |
 | `examples/` and `assets/` | Test input, redacted test output, JSON report, and README PNG visual evidence. |
 | `PII_Redaction_Submission.zip` | Submission-ready archive of the required deliverables. |
@@ -26,16 +27,18 @@ The program uses `python-docx` to read and write the document while retaining pa
 | Category | Detection approach | Replacement behaviour |
 | --- | --- | --- |
 | Email | Email regex | `contactNNN@example.com` |
-| Phone | Phone regex requiring phone-like separators or country prefix | Fake Indian-format number |
+| Phone | Phone regex plus phone-label context for bare local numbers | Fake Indian-format number |
 | SSN | `###-##-####` pattern | Fake SSN |
 | Credit card | 13-19 digit candidate validated with Luhn | Fake Luhn-valid card |
 | IPv4 | IPv4 range regex | Reserved documentation IP `203.0.113.x` |
-| DOB | Date pattern only near birth/DOB labels | Fake date |
-| Address | Address labels and six-digit postal-code/address-line context | Fake mailing address |
-| Name | Contact/person-role context, honorifics, and a learned same-document name list | Deterministic fake first/last name |
-| Company | Legal-entity suffixes plus a learned same-document entity list | `Example Entity NNN Limited` |
+| DOB | Date pattern near birth/DOB labels, including adjacent label/value tables | Fake date |
+| Address | Address labels, postal-code/address-line context, and adjacent label/value tables | Fake mailing address |
+| Name | Person-label context, honorifics, adjacent label/value tables, and a learned same-document name list | Deterministic fake first/last name |
+| Company | Legal-entity suffixes, adjacent label/value tables, plus a learned same-document entity list | `Example Entity NNN Limited` |
 
 The program makes one initial pass to learn high-confidence names and company names. It then uses that list to redact the same values in later mentions, improving recall without broadly treating every capitalised phrase as a person.
+
+It also learns high-confidence values from common table/form layouts where a label and value are separate DOCX paragraphs, for example `Full Name` in one table cell and `Marcus Hill` in the neighbouring cell.
 
 ## 4. How to use it
 
@@ -63,7 +66,13 @@ The program makes one initial pass to learn high-confidence names and company na
    python manual_test.py
    ```
 
-5. Run the local web UI:
+5. Run the generic multi-document regression suite:
+
+   ```powershell
+   python generic_docx_test.py
+   ```
+
+6. Run the local web UI:
 
    ```powershell
    python web_app.py
@@ -80,6 +89,7 @@ The optional `--mapping mapping.json` argument writes the original-to-fake mappi
 - `python -m py_compile redact_pii.py manual_test.py` checks syntax.
 - `python redact_pii.py --evaluate` runs the labelled detector suite across every assignment category plus non-PII controls.
 - `python manual_test.py` creates a DOCX fixture, redacts it, asserts that all ten original PII examples are absent, and verifies that an ordinary offer-date control remains.
+- `python generic_docx_test.py` creates unrelated DOCX files (support ticket, table-based HR form with header/footer PII, and run-split contact note), redacts them, and asserts that seeded originals are removed while control values remain.
 
 ### Manual checks
 
@@ -109,5 +119,6 @@ The prospectus run preserved 1,006 top-level paragraphs and 76 tables. Structura
 - [x] README includes approach, trade-offs, examples, and screenshot.
 - [x] Evaluation report includes accuracy, precision, and recall.
 - [x] Local end-to-end test added and run.
+- [x] Generic multi-document regression suite added and run.
 - [x] Manual screenshot evidence captured from the locally redacted test output.
 - [x] Local frontend added and browser-tested with real DOCX uploads.

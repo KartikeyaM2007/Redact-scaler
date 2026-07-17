@@ -17,7 +17,7 @@ from collections import Counter
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Iterator
+from typing import Iterable, Iterator, Mapping
 
 from docx import Document
 from docx.text.paragraph import Paragraph
@@ -33,31 +33,44 @@ class Span:
 
 EMAIL_RE = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
 PHONE_RE = re.compile(
-    r"(?<!\w)(?:\+\s?91[\s.-]?)?(?:\(?0?\d{2,5}\)?[\s.-]?)?\d{3,5}[\s.-]\d{4,6}(?!\w)"
+    r"(?<!\w)(?:\+?\s?\d{1,3}[\s.-]?)?(?:\(?0?\d{2,5}\)?[\s.-]?)?\d{3,5}[\s.-]\d{4,6}(?!\w)"
+)
+PHONE_CONTEXT_RE = re.compile(
+    r"(?i)\b(?:phone|mobile|cell|telephone|tel|contact\s+number|contact\s+no\.?|whatsapp)\s*[:#-]?\s*(\+?\d[\d\s().-]{8,}\d)"
 )
 SSN_RE = re.compile(r"(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)")
 IP_RE = re.compile(r"(?<![\d.])(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}(?![\d.])")
 DATE_RE = re.compile(
-    r"\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})\b",
+    r"\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2}|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Sept|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{4})\b",
     re.I,
 )
 CARD_CANDIDATE_RE = re.compile(r"(?<!\d)(?:\d[ -]?){13,19}\d(?!\d)")
 PIN_RE = re.compile(r"\b\d{3}\s?\d{3}\b")
+POSTAL_RE = re.compile(r"\b(?:\d{3}\s?\d{3}|\d{5}(?:-\d{4})?)\b")
 ORG_RE = re.compile(
-    r"\b(?:[A-Z][A-Za-z&.'-]*\s+){0,6}(?:Private\s+Limited|Public\s+Limited|Limited|Ltd\.?|LLP|L\.L\.P\.|Inc\.?|Corporation|Corp\.?|Bank)\b"
+    r"\b(?:[A-Z][A-Za-z0-9&.'-]*,?\s+){1,8}(?:Private\s+Limited|Public\s+Limited|Pvt\.?\s+Ltd\.?|Limited|Ltd\.?|LLP|L\.L\.P\.|LLC|L\.L\.C\.|Inc\.?|Incorporated|Corporation|Corp\.?|Company|Co\.?|Bank|PLC|GmbH)\b"
 )
 NAME_CONTEXT_RE = re.compile(
-    r"(?i)\b(?:contact\s+person|director|managing\s+director|chief\s+financial\s+officer|company\s+secretary|compliance\s+officer|partner|promoter|auditor)\s*:\s*"
+    r"(?i)\b(?:contact\s+person|full\s+name|customer\s+name|client\s+name|applicant\s+name|candidate\s+name|employee\s+name|patient\s+name|student\s+name|user\s+name|name|director|managing\s+director|chief\s+financial\s+officer|company\s+secretary|compliance\s+officer|partner|promoter|auditor)\s*:\s*"
     r"((?:Mr\.|Ms\.|Mrs\.|Dr\.)?\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})"
 )
 TITLED_NAME_RE = re.compile(r"\b(?:Mr\.|Ms\.|Mrs\.|Dr\.)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}\b")
 ADDRESS_LABEL_RE = re.compile(
-    r"(?i)\b(?:registered\s+office|corporate\s+office|address|residence|mailing\s+address)\s*:\s*([^\n]+)"
+    r"(?i)\b(?:registered\s+office|corporate\s+office|home\s+address|office\s+address|billing\s+address|shipping\s+address|residence|mailing\s+address|address)\s*:\s*([^\n]+)"
 )
-ADDRESS_HINT_RE = re.compile(r"(?i)\b(?:road|rd\.?|street|st\.?|marg|floor|building|tower|office|village|taluka|nagar|mumbai|pune|india)\b")
-ADDRESS_LINE_RE = re.compile(r"(?im)^.*\b\d{3}\s?\d{3}\b.*$")
+ADDRESS_HINT_RE = re.compile(
+    r"(?i)\b(?:road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|drive|dr\.?|boulevard|blvd\.?|suite|apt\.?|apartment|floor|building|tower|office|po\s+box|village|taluka|nagar|mumbai|pune|india|usa|united\s+states)\b"
+)
+ADDRESS_LINE_RE = re.compile(r"(?im)^.*(?:\b\d{3}\s?\d{3}\b|\b\d{5}(?:-\d{4})?\b).*$")
 CONTACT_VALUE_RE = re.compile(r"(?i)\bcontact\s+person\s*:\s*([^;\n]+)")
 PERSON_IN_VALUE_RE = re.compile(r"(?:Mr\.|Ms\.|Mrs\.|Dr\.)?\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}")
+LABEL_TYPES = {
+    "name": ("name", "full name", "customer name", "client name", "applicant name", "candidate name", "employee name", "patient name", "student name", "contact person"),
+    "dob": ("dob", "date of birth", "birth date", "birthdate"),
+    "phone": ("phone", "mobile", "telephone", "tel", "contact number", "contact no", "whatsapp"),
+    "address": ("address", "home address", "office address", "billing address", "shipping address", "residence", "mailing address", "registered office"),
+    "company": ("company", "employer", "organisation", "organization"),
+}
 
 
 def _luhn(number: str) -> bool:
@@ -76,6 +89,16 @@ def _luhn(number: str) -> bool:
 
 def _overlap(a: Span, b: Span) -> bool:
     return a.start < b.end and b.start < a.end
+
+
+def _label_type(text: str) -> str | None:
+    normalized = re.sub(r"[^a-z0-9]+", " ", text.casefold()).strip()
+    if not normalized or len(normalized) > 45:
+        return None
+    for pii_type, labels in LABEL_TYPES.items():
+        if normalized in labels:
+            return pii_type
+    return None
 
 
 class Pseudonymizer:
@@ -144,7 +167,12 @@ def _add(spans: list[Span], start: int, end: int, pii_type: str, text: str) -> N
         spans.append(Span(start, end, pii_type, value))
 
 
-def detect_pii(text: str, known_names: Iterable[str] = (), known_companies: Iterable[str] = ()) -> list[Span]:
+def detect_pii(
+    text: str,
+    known_names: Iterable[str] = (),
+    known_companies: Iterable[str] = (),
+    known_values: Mapping[str, Iterable[str]] | None = None,
+) -> list[Span]:
     """Return non-overlapping spans, prioritising longer/contextual detections."""
     candidates: list[Span] = []
 
@@ -152,7 +180,7 @@ def detect_pii(text: str, known_names: Iterable[str] = (), known_companies: Iter
     for match in ADDRESS_LABEL_RE.finditer(text):
         address = match.group(1).strip()
         begin = match.start(1) + (len(match.group(1)) - len(match.group(1).lstrip()))
-        if PIN_RE.search(address) or ADDRESS_HINT_RE.search(address):
+        if POSTAL_RE.search(address) or ADDRESS_HINT_RE.search(address):
             _add(candidates, begin, match.end(1), "address", text)
     for match in ADDRESS_LINE_RE.finditer(text):
         line = match.group(0)
@@ -173,9 +201,14 @@ def detect_pii(text: str, known_names: Iterable[str] = (), known_companies: Iter
         digits = re.sub(r"\D", "", raw)
         if len(digits) >= 10 and ("+" in raw or " " in raw or "-" in raw or "(" in raw):
             _add(candidates, match.start(), match.end(), "phone", text)
+    for match in PHONE_CONTEXT_RE.finditer(text):
+        raw = match.group(1)
+        digits = re.sub(r"\D", "", raw)
+        if 10 <= len(digits) <= 15:
+            _add(candidates, match.start(1), match.end(1), "phone", text)
     for match in DATE_RE.finditer(text):
         context = text[max(0, match.start() - 45) : match.end() + 10].casefold()
-        if any(marker in context for marker in ("date of birth", "dob", "born", "birth date")):
+        if any(marker in context for marker in ("date of birth", "dob", "born", "birth date", "birthdate")):
             _add(candidates, match.start(), match.end(), "dob", text)
     for match in NAME_CONTEXT_RE.finditer(text):
         _add(candidates, match.start(1), match.end(1), "name", text)
@@ -194,6 +227,12 @@ def detect_pii(text: str, known_names: Iterable[str] = (), known_companies: Iter
     for company in known_companies:
         for match in re.finditer(r"(?<!\w)" + re.escape(company) + r"(?!\w)", text):
             _add(candidates, match.start(), match.end(), "company", text)
+    for pii_type, values in (known_values or {}).items():
+        for value in values:
+            if not value.strip():
+                continue
+            for match in re.finditer(r"(?<!\w)" + re.escape(value.strip()) + r"(?!\w)", text):
+                _add(candidates, match.start(), match.end(), pii_type, text)
 
     # De-duplicate and resolve overlaps: contextual/long spans first, then earliest.
     priority = {"address": 0, "email": 1, "ssn": 1, "card": 1, "phone": 1, "ip": 1, "dob": 1, "name": 2, "company": 3}
@@ -215,9 +254,10 @@ def replace_paragraph(
     counts: Counter[str],
     known_names: Iterable[str],
     known_companies: Iterable[str],
+    known_values: Mapping[str, Iterable[str]] | None = None,
 ) -> bool:
     original = paragraph.text
-    spans = detect_pii(original, known_names, known_companies)
+    spans = detect_pii(original, known_names, known_companies, known_values)
     if not spans:
         return False
     runs = list(paragraph.runs)
@@ -282,6 +322,37 @@ def iter_paragraphs(document: Document) -> Iterator[Paragraph]:
                 yield from walk_table(table)
 
 
+def _contextual_known_values(paragraphs: list[Paragraph]) -> dict[str, set[str]]:
+    """Learn PII values from adjacent label/value paragraphs.
+
+    DOCX tables often expose each cell as a separate paragraph, so a row such as
+    `Full Name | Marcus Hill` becomes two neighbouring paragraphs. This pass
+    lets the redactor work on arbitrary forms/tickets, not just prose where the
+    label and value share one paragraph.
+    """
+    known: dict[str, set[str]] = {kind: set() for kind in LABEL_TYPES}
+    for previous, current in zip(paragraphs, paragraphs[1:]):
+        label = _label_type(previous.text)
+        value = current.text.strip()
+        if not label or not value or len(value) > 180:
+            continue
+        if label == "name" and PERSON_IN_VALUE_RE.fullmatch(value):
+            known["name"].add(value)
+        elif label == "dob":
+            for match in DATE_RE.finditer(value):
+                known["dob"].add(match.group(0))
+        elif label == "phone":
+            digits = re.sub(r"\D", "", value)
+            if 10 <= len(digits) <= 15:
+                known["phone"].add(value)
+        elif label == "address" and (POSTAL_RE.search(value) or ADDRESS_HINT_RE.search(value)):
+            known["address"].add(value)
+        elif label == "company":
+            if ORG_RE.search(value) or len(value.split()) >= 2:
+                known["company"].add(value)
+    return {kind: values for kind, values in known.items() if values}
+
+
 def redact_docx(source: Path, output: Path, mapping_path: Path | None = None) -> dict:
     document = Document(source)
     pseudonymizer = Pseudonymizer()
@@ -289,14 +360,20 @@ def redact_docx(source: Path, output: Path, mapping_path: Path | None = None) ->
     changed_paragraphs = 0
     paragraphs = list(iter_paragraphs(document))
     seed_spans = [span for paragraph in paragraphs for span in detect_pii(paragraph.text)]
-    known_names = sorted({span.value.strip() for span in seed_spans if span.pii_type == "name"}, key=len, reverse=True)
+    known_values = _contextual_known_values(paragraphs)
+    known_names = sorted(
+        {span.value.strip() for span in seed_spans if span.pii_type == "name"} | set(known_values.get("name", set())),
+        key=len,
+        reverse=True,
+    )
     known_companies = sorted(
-        {span.value.strip() for span in seed_spans if span.pii_type == "company" and len(span.value.split()) > 1},
+        {span.value.strip() for span in seed_spans if span.pii_type == "company" and len(span.value.split()) > 1}
+        | set(known_values.get("company", set())),
         key=len,
         reverse=True,
     )
     for paragraph in paragraphs:
-        if replace_paragraph(paragraph, pseudonymizer, counts, known_names, known_companies):
+        if replace_paragraph(paragraph, pseudonymizer, counts, known_names, known_companies, known_values):
             changed_paragraphs += 1
     output.parent.mkdir(parents=True, exist_ok=True)
     document.save(output)

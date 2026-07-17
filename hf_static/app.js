@@ -9,6 +9,13 @@ const workflowModel = [
 
 const piiLabels = ["name", "email", "phone", "company", "address", "ssn", "card", "dob", "ip"];
 const fakeNames = ["Aarav Shah", "Arjun Singh", "Priya Menon", "Neha Kapoor", "Kabir Mehta"];
+const labelTypes = {
+  name: ["name", "full name", "customer name", "client name", "applicant name", "candidate name", "employee name", "patient name", "student name", "contact person"],
+  dob: ["dob", "date of birth", "birth date", "birthdate"],
+  phone: ["phone", "mobile", "telephone", "tel", "contact number", "contact no", "whatsapp"],
+  address: ["address", "home address", "office address", "billing address", "shipping address", "residence", "mailing address", "registered office"],
+  company: ["company", "employer", "organisation", "organization"],
+};
 const replacements = new Map();
 const state = { file: null, steps: new Map() };
 
@@ -169,6 +176,41 @@ function markFound(counts, type, hitTypes) {
   if (hitTypes) hitTypes.add(type);
 }
 
+function labelType(text) {
+  const normalized = String(text).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  if (!normalized || normalized.length > 45) return null;
+  for (const [type, labels] of Object.entries(labelTypes)) {
+    if (labels.includes(normalized)) return type;
+  }
+  return null;
+}
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function seedKnownValues(lines) {
+  const known = Object.fromEntries(Object.keys(labelTypes).map((type) => [type, new Set()]));
+  const nameRe = /^(?:Mr\.|Ms\.|Mrs\.|Dr\.)?\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}$/;
+  const dateRe = /\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2}|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Sept|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{4})\b/i;
+  const addressHintRe = /\b(?:road|rd\.?|street|st\.?|avenue|ave\.?|lane|ln\.?|drive|dr\.?|boulevard|blvd\.?|suite|apt\.?|apartment|floor|building|tower|office|po\s+box|village|taluka|nagar|mumbai|pune|india|usa|united\s+states)\b/i;
+  const postalRe = /\b(?:\d{3}\s?\d{3}|\d{5}(?:-\d{4})?)\b/;
+  for (let i = 1; i < lines.length; i += 1) {
+    const type = labelType(lines[i - 1]);
+    const value = String(lines[i] || "").trim();
+    if (!type || !value || value.length > 180) continue;
+    if (type === "name" && nameRe.test(value)) known.name.add(value);
+    if (type === "dob" && dateRe.test(value)) known.dob.add(value.match(dateRe)[0]);
+    if (type === "phone") {
+      const digits = value.replace(/\D/g, "");
+      if (digits.length >= 10 && digits.length <= 15) known.phone.add(value);
+    }
+    if (type === "address" && (postalRe.test(value) || addressHintRe.test(value))) known.address.add(value);
+    if (type === "company" && value.split(/\s+/).length >= 2) known.company.add(value);
+  }
+  return known;
+}
+
 function replacement(type, value) {
   const id = key(type, value);
   if (replacements.has(id)) return replacements.get(id);
@@ -187,16 +229,17 @@ function replacement(type, value) {
   return fake;
 }
 
-function detectAndReplace(text, counts, hitTypes = null) {
+function detectAndReplace(text, counts, hitTypes = null, knownValues = {}) {
   const patterns = [
     ["email", /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi],
     ["ssn", /\b\d{3}-\d{2}-\d{4}\b/g],
     ["ip", /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g],
-    ["phone", /(?:\+?\d{1,3}[\s-]?)?(?:\(?\d{2,5}\)?[\s-]?)?\d{5}[\s-]?\d{5}\b/g],
-    ["dob", /\b(?:Date of Birth|DOB|Birth Date)[:\s-]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b/gi],
-    ["address", /\b(?:Registered Office|Address|Mailing address)[:\s-]*[^.]{10,120}(?:\d{3}\s?\d{3}|\d{5})[^.]*/gi],
-    ["company", /\b[A-Z][A-Za-z&., ]{2,80}\s(?:Limited|Ltd|Private Limited|LLP|Inc|Corporation|Company)\b/g],
-    ["name", /\b(?:Contact Person|Backup contact|Name|Mr\.|Ms\.|Mrs\.|Dr\.)[:\s-]*[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2}\b/g],
+    ["phone", /(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{2,5}\)?[\s.-]?)?\d{3,5}[\s.-]\d{4,6}\b/g],
+    ["phone", /\b(?:Phone|Mobile|Telephone|Tel|Contact Number|Contact No\.?|WhatsApp)[:#\s-]*(\+?\d[\d\s().-]{8,}\d)\b/gi],
+    ["dob", /\b(?:Date of Birth|DOB|Birth Date|Birthdate)[:\s-]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2}|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Sept|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{4})\b/gi],
+    ["address", /\b(?:Registered Office|Corporate Office|Home Address|Office Address|Billing Address|Shipping Address|Address|Residence|Mailing address)[:\s-]*[^.]{10,160}(?:\d{3}\s?\d{3}|\d{5}(?:-\d{4})?)[^.]*/gi],
+    ["company", /\b(?:[A-Z][A-Za-z0-9&.'-]*,?\s+){1,8}(?:Private\s+Limited|Public\s+Limited|Pvt\.?\s+Ltd\.?|Limited|Ltd\.?|LLP|L\.L\.P\.|LLC|L\.L\.C\.|Inc\.?|Incorporated|Corporation|Corp\.?|Company|Co\.?|Bank|PLC|GmbH)\b/g],
+    ["name", /\b(?:Contact Person|Full Name|Customer Name|Client Name|Applicant Name|Candidate Name|Employee Name|Patient Name|Student Name|Backup contact|Name|Mr\.|Ms\.|Mrs\.|Dr\.)[:\s-]*[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}\b/g],
   ];
   let output = text;
   for (const [type, pattern] of patterns) {
@@ -212,6 +255,14 @@ function detectAndReplace(text, counts, hitTypes = null) {
     markFound(counts, "card", hitTypes);
     return replacement("card", match);
   });
+  for (const [type, values] of Object.entries(knownValues)) {
+    for (const value of [...values].sort((a, b) => b.length - a.length)) {
+      output = output.replace(new RegExp(escapeRegex(value), "g"), (match) => {
+        markFound(counts, type, hitTypes);
+        return replacement(type, match);
+      });
+    }
+  }
   return output;
 }
 
@@ -250,6 +301,7 @@ async function runRedaction() {
 
     setNode("preview", "running", "Extracting uploaded document text.");
     const inputLines = await collectText(zip, xmlFiles);
+    const knownValues = seedKnownValues(inputLines);
     uploadedMeta.textContent = `${inputLines.length} lines`;
     uploadedPreview.textContent = previewText(inputLines);
     setNode("preview", "done", `${inputLines.length} text lines extracted.`);
@@ -261,7 +313,7 @@ async function runRedaction() {
       for (const node of [...doc.getElementsByTagName("w:t")]) {
         const original = node.textContent;
         const hitTypes = new Set();
-        const replaced = detectAndReplace(original, counts, hitTypes);
+        const replaced = detectAndReplace(original, counts, hitTypes, knownValues);
         if (replaced !== original) {
           node.textContent = replaced;
           changedNodes += 1;

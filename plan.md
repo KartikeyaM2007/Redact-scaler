@@ -16,13 +16,19 @@ The goal is to retain a readable document while replacing detected sensitive val
 | `EVALUATION_REPORT.md` | Reproducible controlled metrics and document-run summary. |
 | `manual_test.py` | End-to-end local regression test covering all required PII types. |
 | `generic_docx_test.py` | Multi-document regression test covering arbitrary DOCX layouts, tables, headers/footers, and split runs. |
+| `ml_ner_test.py` | Regression test proving hybrid ML/NER mode adds unlabelled PERSON/ORG redactions beyond rules-only mode. |
 | `web_app.py` and `web/` | Real local browser UI with upload panel, terminal log, workflow nodes, and download link. |
 | `examples/` and `assets/` | Test input, redacted test output, JSON report, and README PNG visual evidence. |
 | `PII_Redaction_Submission.zip` | Submission-ready archive of the required deliverables. |
 
 ## 3. Detection and replacement design
 
-The program uses `python-docx` to read and write the document while retaining paragraph, table, header, and footer structure. Its detector combines structured regular expressions with context rules:
+The program uses `python-docx` to read and write the document while retaining paragraph, table, header, and footer structure. It supports two modes:
+
+- **Rules**: deterministic regex/context rules.
+- **ML / NER hybrid**: the same rules plus spaCy `en_core_web_sm` NER for extra PERSON/ORG recall.
+
+Its detector combines structured regular expressions with context rules:
 
 | Category | Detection approach | Replacement behaviour |
 | --- | --- | --- |
@@ -40,6 +46,8 @@ The program makes one initial pass to learn high-confidence names and company na
 
 It also learns high-confidence values from common table/form layouts where a label and value are separate DOCX paragraphs, for example `Full Name` in one table cell and `Marcus Hill` in the neighbouring cell.
 
+Hybrid mode uses a pretrained NER model rather than custom training. Training a custom model would require a labelled corpus of PII spans; the pretrained spaCy model gives a reproducible and explainable recall improvement for this assignment.
+
 ## 4. How to use it
 
 1. Install the dependency:
@@ -52,6 +60,12 @@ It also learns high-confidence values from common table/form layouts where a lab
 
    ```powershell
    python redact_pii.py "input.docx" "redacted.docx"
+   ```
+
+   Or run the hybrid ML/NER mode:
+
+   ```powershell
+   python redact_pii.py --mode hybrid "input.docx" "redacted.docx"
    ```
 
 3. Run the controlled detector metrics:
@@ -72,13 +86,19 @@ It also learns high-confidence values from common table/form layouts where a lab
    python generic_docx_test.py
    ```
 
-6. Run the local web UI:
+6. Run the ML/NER comparison test:
+
+   ```powershell
+   python ml_ner_test.py
+   ```
+
+7. Run the local web UI:
 
    ```powershell
    python web_app.py
    ```
 
-   Open `http://127.0.0.1:8000/`, upload a `.docx`, and download the redacted result.
+   Open `http://127.0.0.1:8000/`, select **Rules** or **ML / NER**, upload a `.docx`, and download the redacted result.
 
 The optional `--mapping mapping.json` argument writes the original-to-fake mapping. This is sensitive operational data and must not be included in a submission or shared with recipients of the redacted file.
 
@@ -90,6 +110,7 @@ The optional `--mapping mapping.json` argument writes the original-to-fake mappi
 - `python redact_pii.py --evaluate` runs the labelled detector suite across every assignment category plus non-PII controls.
 - `python manual_test.py` creates a DOCX fixture, redacts it, asserts that all ten original PII examples are absent, and verifies that an ordinary offer-date control remains.
 - `python generic_docx_test.py` creates unrelated DOCX files (support ticket, table-based HR form with header/footer PII, and run-split contact note), redacts them, and asserts that seeded originals are removed while control values remain.
+- `python ml_ner_test.py` creates an unlabelled prose fixture and proves hybrid mode adds spaCy-detected PERSON/ORG redactions compared with rules-only mode.
 
 ### Manual checks
 
@@ -107,7 +128,7 @@ The prospectus run preserved 1,006 top-level paragraphs and 76 tables. Structura
 ## 6. Known trade-offs and future improvements
 
 - Regexes are auditable and portable but may miss unlabelled names, informal company names, or non-standard address formats.
-- Context rules favour precision over recall for names and dates. A production deployment should add a labelled document sample and potentially a configured NER model or approved custom dictionaries.
+- Context rules favour precision over recall for names and dates. The included hybrid mode improves recall using pretrained NER, but a production deployment should add a labelled document sample and potentially train/tune a domain-specific NER model or approved custom dictionaries.
 - The source-to-fake mapping is held in memory by default. If written, it needs secure storage and access controls.
 - For large production batches, add logging, document-level audit IDs, encryption at rest, unit tests for each new detector, and a reviewer queue for uncertain candidates.
 - Consider preserving runs/hyperlinks more granularly if source documents rely heavily on rich inline formatting.
@@ -120,5 +141,6 @@ The prospectus run preserved 1,006 top-level paragraphs and 76 tables. Structura
 - [x] Evaluation report includes accuracy, precision, and recall.
 - [x] Local end-to-end test added and run.
 - [x] Generic multi-document regression suite added and run.
+- [x] ML/NER mode switch added and tested.
 - [x] Manual screenshot evidence captured from the locally redacted test output.
 - [x] Local frontend added and browser-tested with real DOCX uploads.

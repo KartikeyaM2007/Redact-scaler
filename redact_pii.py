@@ -16,11 +16,15 @@ import re
 from collections import Counter
 from copy import deepcopy
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Iterable, Iterator, Mapping
 
 from docx import Document
 from docx.text.paragraph import Paragraph
+
+
+VALID_MODES = {"rules", "hybrid"}
 
 
 @dataclass(frozen=True)
@@ -101,6 +105,51 @@ def _label_type(text: str) -> str | None:
     return None
 
 
+@lru_cache(maxsize=1)
+def _load_spacy_model():
+    try:
+        import spacy  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise RuntimeError(
+            "Hybrid ML/NER mode requires spaCy. Install dependencies with "
+            "`python -m pip install -r requirements.txt` and download the model with "
+            "`python -m spacy download en_core_web_sm`."
+        ) from exc
+    try:
+        return spacy.load("en_core_web_sm")
+    except OSError as exc:
+        raise RuntimeError(
+            "Hybrid ML/NER mode requires the spaCy model `en_core_web_sm`. "
+            "Install it with `python -m spacy download en_core_web_sm`."
+        ) from exc
+
+
+def detect_ner_pii(text: str) -> list[Span]:
+    """Detect extra name/company/address-like spans with a spaCy NER model.
+
+    This is intentionally a hybrid layer. Regex rules remain responsible for
+    structured identifiers, while NER adds recall for unlabelled PERSON/ORG
+    entities and location entities when the surrounding line looks address-like.
+    """
+    if not text.strip():
+        return []
+    nlp = _load_spacy_model()
+    doc = nlp(text)
+    spans: list[Span] = []
+    address_context = bool(ADDRESS_LABEL_RE.search(text) or ADDRESS_HINT_RE.search(text) or POSTAL_RE.search(text))
+    for ent in doc.ents:
+        value = ent.text.strip()
+        if not value or len(value) < 3:
+            continue
+        if ent.label_ == "PERSON" and PERSON_IN_VALUE_RE.fullmatch(value):
+            spans.append(Span(ent.start_char, ent.end_char, "name", value))
+        elif ent.label_ == "ORG" and len(value.split()) <= 9:
+            spans.append(Span(ent.start_char, ent.end_char, "company", value))
+        elif ent.label_ in {"GPE", "LOC", "FAC"} and address_context:
+            spans.append(Span(ent.start_char, ent.end_char, "address", value))
+    return spans
+
+
 class Pseudonymizer:
     """Creates deterministic, internally consistent fake values per source value."""
 
@@ -127,7 +176,9 @@ class Pseudonymizer:
         elif pii_type == "email":
             fake = f"contact{ordinal:03d}@example.com"
         elif pii_type == "phone":
-            fake = f"+91 90000 {ordinal:05d}"
+            area = 70000 + (digest % 29999)
+            subscriber = 10000 + ((digest // 97 + ordinal * 7919) % 90000)
+            fake = f"+91 {area:05d} {subscriber:05d}"
         elif pii_type == "company":
             fake = f"Example Entity {ordinal:03d} Limited"
         elif pii_type == "address":
@@ -172,6 +223,7 @@ def detect_pii(
     known_names: Iterable[str] = (),
     known_companies: Iterable[str] = (),
     known_values: Mapping[str, Iterable[str]] | None = None,
+    use_ner: bool = False,
 ) -> list[Span]:
     """Return non-overlapping spans, prioritising longer/contextual detections."""
     candidates: list[Span] = []
@@ -233,6 +285,8 @@ def detect_pii(
                 continue
             for match in re.finditer(r"(?<!\w)" + re.escape(value.strip()) + r"(?!\w)", text):
                 _add(candidates, match.start(), match.end(), pii_type, text)
+    if use_ner:
+        candidates.extend(detect_ner_pii(text))
 
     # De-duplicate and resolve overlaps: contextual/long spans first, then earliest.
     priority = {"address": 0, "email": 1, "ssn": 1, "card": 1, "phone": 1, "ip": 1, "dob": 1, "name": 2, "company": 3}
@@ -255,9 +309,10 @@ def replace_paragraph(
     known_names: Iterable[str],
     known_companies: Iterable[str],
     known_values: Mapping[str, Iterable[str]] | None = None,
+    use_ner: bool = False,
 ) -> bool:
     original = paragraph.text
-    spans = detect_pii(original, known_names, known_companies, known_values)
+    spans = detect_pii(original, known_names, known_companies, known_values, use_ner)
     if not spans:
         return False
     runs = list(paragraph.runs)
@@ -353,13 +408,18 @@ def _contextual_known_values(paragraphs: list[Paragraph]) -> dict[str, set[str]]
     return {kind: values for kind, values in known.items() if values}
 
 
-def redact_docx(source: Path, output: Path, mapping_path: Path | None = None) -> dict:
+def redact_docx(source: Path, output: Path, mapping_path: Path | None = None, mode: str = "rules") -> dict:
+    if mode not in VALID_MODES:
+        raise ValueError(f"Unsupported redaction mode {mode!r}. Choose one of: {', '.join(sorted(VALID_MODES))}.")
+    use_ner = mode == "hybrid"
+    if use_ner:
+        _load_spacy_model()
     document = Document(source)
     pseudonymizer = Pseudonymizer()
     counts: Counter[str] = Counter()
     changed_paragraphs = 0
     paragraphs = list(iter_paragraphs(document))
-    seed_spans = [span for paragraph in paragraphs for span in detect_pii(paragraph.text)]
+    seed_spans = [span for paragraph in paragraphs for span in detect_pii(paragraph.text, use_ner=use_ner)]
     known_values = _contextual_known_values(paragraphs)
     known_names = sorted(
         {span.value.strip() for span in seed_spans if span.pii_type == "name"} | set(known_values.get("name", set())),
@@ -373,13 +433,15 @@ def redact_docx(source: Path, output: Path, mapping_path: Path | None = None) ->
         reverse=True,
     )
     for paragraph in paragraphs:
-        if replace_paragraph(paragraph, pseudonymizer, counts, known_names, known_companies, known_values):
+        if replace_paragraph(paragraph, pseudonymizer, counts, known_names, known_companies, known_values, use_ner):
             changed_paragraphs += 1
     output.parent.mkdir(parents=True, exist_ok=True)
     document.save(output)
     summary = {
         "source": str(source),
         "output": str(output),
+        "mode": mode,
+        "ner_model": "en_core_web_sm" if use_ner else None,
         "changed_paragraphs": changed_paragraphs,
         "redactions": dict(sorted(counts.items())),
         "unique_replacements": len(pseudonymizer.replacements),
@@ -441,6 +503,12 @@ def main() -> None:
     parser.add_argument("input", nargs="?", type=Path, help="Source DOCX")
     parser.add_argument("output", nargs="?", type=Path, help="Redacted DOCX")
     parser.add_argument("--mapping", type=Path, help="Optional local-only JSON mapping (do not distribute).")
+    parser.add_argument(
+        "--mode",
+        choices=sorted(VALID_MODES),
+        default="rules",
+        help="Redaction engine: rules for deterministic regex/context rules, hybrid for rules plus spaCy NER.",
+    )
     parser.add_argument("--evaluate", action="store_true", help="Print metrics for the deterministic labelled test suite.")
     args = parser.parse_args()
     if args.evaluate:
@@ -448,7 +516,7 @@ def main() -> None:
         return
     if not args.input or not args.output:
         parser.error("input and output are required unless --evaluate is used")
-    print(json.dumps(redact_docx(args.input, args.output, args.mapping), indent=2))
+    print(json.dumps(redact_docx(args.input, args.output, args.mapping, mode=args.mode), indent=2))
 
 
 if __name__ == "__main__":

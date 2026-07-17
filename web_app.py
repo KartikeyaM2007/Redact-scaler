@@ -26,7 +26,7 @@ from urllib.parse import unquote, urlparse
 
 from docx import Document
 
-from redact_pii import iter_paragraphs, redact_docx
+from redact_pii import VALID_MODES, iter_paragraphs, redact_docx
 
 
 ROOT = Path(__file__).resolve().parent
@@ -155,6 +155,10 @@ class RedactionHandler(SimpleHTTPRequestHandler):
         file_item = form["document"] if "document" in form else None
         if file_item is None or not getattr(file_item, "filename", ""):
             raise ValueError("Upload must include a .docx file in the 'document' field.")
+        mode_item = form["mode"] if "mode" in form else None
+        mode = getattr(mode_item, "value", "rules") or "rules"
+        if mode not in VALID_MODES:
+            raise ValueError(f"Unsupported redaction mode {mode!r}. Choose rules or hybrid.")
 
         filename = safe_filename(file_item.filename)
         if not filename.lower().endswith(".docx"):
@@ -176,14 +180,15 @@ class RedactionHandler(SimpleHTTPRequestHandler):
         input_preview = docx_preview(input_path)
 
         start = time.perf_counter()
-        summary = redact_docx(input_path, output_path)
+        summary = redact_docx(input_path, output_path, mode=mode)
         elapsed = time.perf_counter() - start
         total_redactions = sum(summary["redactions"].values())
+        mode_label = "Hybrid rules + spaCy NER" if mode == "hybrid" else "Rules/context"
         logger.step(
             "redact",
             "Redaction engine completed",
             "done",
-            f"{total_redactions} replacements across {summary['changed_paragraphs']} changed paragraphs in {elapsed:.2f}s.",
+            f"{mode_label}: {total_redactions} replacements across {summary['changed_paragraphs']} changed paragraphs in {elapsed:.2f}s.",
         )
 
         if not output_path.exists() or output_path.stat().st_size == 0:

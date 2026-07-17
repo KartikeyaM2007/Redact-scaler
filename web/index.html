@@ -26,6 +26,23 @@
             <span class="drop-subtitle">or click to browse</span>
           </label>
           <div class="file-card" id="fileCard">No file selected</div>
+          <fieldset class="mode-switch" aria-label="Redaction engine">
+            <legend>Redaction engine</legend>
+            <label>
+              <input type="radio" name="redactionMode" value="rules" checked>
+              <span>
+                <strong>Rules</strong>
+                <small>Fast regex/context baseline</small>
+              </span>
+            </label>
+            <label>
+              <input type="radio" name="redactionMode" value="hybrid">
+              <span>
+                <strong>ML / NER</strong>
+                <small>Rules + spaCy entity model</small>
+              </span>
+            </label>
+          </fieldset>
           <button id="runButton" type="button" disabled>Run redaction</button>
           <a id="downloadLink" class="download-link hidden" href="#">Download redacted DOCX</a>
         </aside>

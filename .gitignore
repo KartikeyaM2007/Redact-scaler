@@ -4,3 +4,5 @@ __pycache__/
 qa_render/
 qa_render_manual/
 web_outputs/
+examples/ml_ner/cli_hybrid_check.docx
+PII_Redaction_Submission.backup.zip

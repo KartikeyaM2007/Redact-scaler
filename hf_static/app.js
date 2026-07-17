@@ -176,6 +176,15 @@ function markFound(counts, type, hitTypes) {
   if (hitTypes) hitTypes.add(type);
 }
 
+function stableHash(value) {
+  let hash = 2166136261;
+  for (const char of String(value)) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
 function labelType(text) {
   const normalized = String(text).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   if (!normalized || normalized.length > 45) return null;
@@ -215,9 +224,14 @@ function replacement(type, value) {
   const id = key(type, value);
   if (replacements.has(id)) return replacements.get(id);
   const ordinal = replacements.size + 1;
+  const hash = stableHash(id);
   let fake = value;
   if (type === "email") fake = `contact${String(ordinal).padStart(3, "0")}@example.com`;
-  if (type === "phone") fake = `+91 90000 ${String(ordinal).padStart(5, "0")}`;
+  if (type === "phone") {
+    const area = 70000 + (hash % 29999);
+    const subscriber = 10000 + ((Math.floor(hash / 97) + ordinal * 7919) % 90000);
+    fake = `+91 ${String(area).padStart(5, "0")} ${String(subscriber).padStart(5, "0")}`;
+  }
   if (type === "ssn") fake = `900-01-${String(1000 + ordinal).slice(-4)}`;
   if (type === "card") fake = `4111 1111 1111 ${String(ordinal + 5).padStart(4, "0")}`;
   if (type === "ip") fake = `203.0.113.${Math.min(ordinal + 1, 254)}`;

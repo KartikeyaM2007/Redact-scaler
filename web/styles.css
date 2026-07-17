@@ -192,6 +192,57 @@ p {
   overflow-wrap: anywhere;
 }
 
+.mode-switch {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdff;
+  margin: 12px 0 0;
+  padding: 12px;
+}
+
+.mode-switch legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mode-switch label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  padding: 10px;
+}
+
+.mode-switch label:has(input:checked) {
+  border-color: var(--accent);
+  background: #edf5ff;
+}
+
+.mode-switch input {
+  accent-color: var(--accent);
+}
+
+.mode-switch strong,
+.mode-switch small {
+  display: block;
+}
+
+.mode-switch small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 button,
 .download-link {
   display: inline-flex;

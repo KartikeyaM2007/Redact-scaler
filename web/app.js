@@ -25,6 +25,7 @@ const uploadedMeta = document.querySelector("#uploadedMeta");
 const uploadedPreview = document.querySelector("#uploadedPreview");
 const resultMeta = document.querySelector("#resultMeta");
 const resultPreview = document.querySelector("#resultPreview");
+const modeInputs = document.querySelectorAll('input[name="redactionMode"]');
 
 function line(message) {
   const stamp = new Date().toLocaleTimeString();
@@ -59,6 +60,7 @@ function renderSummary(data) {
   }
   const counts = data.summary.redactions || {};
   const items = [
+    ["Mode", data.summary.mode === "hybrid" ? "ML / NER" : "Rules"],
     ["Changed paragraphs", data.summary.changed_paragraphs],
     ["Unique replacements", data.summary.unique_replacements],
     ["Total redactions", Object.values(counts).reduce((a, b) => a + b, 0)],
@@ -128,17 +130,19 @@ async function checkHealth() {
 
 async function runRedaction() {
   if (!state.file) return;
+  const selectedMode = document.querySelector('input[name="redactionMode"]:checked')?.value || "rules";
   state.steps.clear();
   renderWorkflow();
   renderSummary(null);
   renderPreviews(null);
-  terminal.textContent = "Starting local redaction request...";
+  terminal.textContent = `Starting local redaction request with ${selectedMode === "hybrid" ? "ML / NER hybrid" : "rules"} mode...`;
   downloadLink.classList.add("hidden");
   runButton.disabled = true;
   setNode("upload", "running", "Browser is sending the selected DOCX.");
 
   const formData = new FormData();
   formData.append("document", state.file);
+  formData.append("mode", selectedMode);
 
   try {
     const response = await fetch("/api/redact", {

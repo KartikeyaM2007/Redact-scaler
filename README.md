@@ -1,5 +1,9 @@
 # PII Redaction Tool
 
+Author: Kartikeya Mishra
+
+Live demo: [Hugging Face Space](https://huggingface.co/spaces/Kartikeym2007/Redact)
+
 This project redacts personally identifiable information from `.docx` files and replaces detected values with consistent synthetic alternatives. It was built for the Scaler PII Redaction assignment, but the core script works on arbitrary Word documents such as ticket logs, HR forms, support exports, and prospectus-style documents.
 
 ## What is included
@@ -14,6 +18,7 @@ This project redacts personally identifiable information from `.docx` files and 
 | `generic_docx_test.py` | Multi-document regression test for generic DOCX layouts. |
 | `ml_ner_test.py` | Proves ML/NER mode adds recall beyond rules-only mode. |
 | `web_app.py`, `web/` | Local frontend with a Rules vs ML/NER switch. |
+| `assets/` | README screenshots showing Rules and ML/NER frontend runs. |
 
 ## Redaction modes
 
@@ -59,6 +64,18 @@ python web_app.py
 ```
 
 Open `http://127.0.0.1:8000/`, choose **Rules** or **ML / NER**, upload a `.docx`, run redaction, preview the result, and download the generated redacted DOCX.
+
+The live Hugging Face link is a static browser demo. The full Python backend, including spaCy ML/NER mode, is available through the local frontend and CLI.
+
+## Frontend screenshots
+
+Rules mode redacts the structured email and phone number while leaving unlabelled prose entities unchanged:
+
+![Rules mode frontend result](assets/frontend-rules-mode.png)
+
+ML/NER mode uses the same rules plus spaCy NER, so it also catches unlabelled person and company entities:
+
+![ML NER mode frontend result](assets/frontend-ml-ner-mode.png)
 
 ## Tests and evaluation
 

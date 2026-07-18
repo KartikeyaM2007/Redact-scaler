@@ -43,22 +43,28 @@ Per-type TPs in that suite: name×2, email×1, phone×1, company×1, address×1,
 | `generic_docx_test.py` | yes | ticket / HR table / split runs all passed |
 | `ml_ner_test.py` | yes | Rules redactions = 2; Hybrid = 5 (+3 unlabelled entities) |
 
-## Prospectus output (verified on submitted file)
+## Prospectus run (live, Rules — 18 Jul 2026)
 
-Scanned `Red Herring Prospectus - Redacted.docx` today:
+Source: original `Red Herring Prospectus.docx` (kept off git).  
+Command: `python verify_metrics.py --prospectus "…\Red Herring Prospectus.docx"`.  
+Output: `Red Herring Prospectus - Redacted.docx`.
 
-| Marker | Count |
+| | |
 | --- | ---: |
-| Non-empty paragraphs | 694 |
-| `@example.com` emails | 38 |
-| `Example Entity … Limited` | 77 |
-| Example Avenue addresses | 27 |
-| Synthetic `+91` phones | 13 |
-| Synthetic SSN / card / IP | 0 |
+| Changed paragraphs | 255 |
+| Unique replacements | 187 |
+| Total redactionsions | **373** |
 
-No live “347 total redactions” claim here — that needs a fresh run on the **original** prospectus:
+| Type | Count |
+| --- | ---: |
+| company | 188 |
+| name | 62 |
+| email | 50 |
+| address | 49 |
+| phone | 24 |
+| ssn / card / dob / ip | 0 in this file |
 
-`python verify_metrics.py --prospectus "PATH\Red Herring Prospectus.docx"`
+SSN/card/DOB/IP still clear the controlled suite; they simply weren’t present in this prospectus.
 
 ## Limits
 

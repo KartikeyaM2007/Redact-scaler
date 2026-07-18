@@ -55,24 +55,26 @@ These scores are for that suite only — not a claim that every paragraph of the
 | `generic_docx_test.py` | passed — 3 scenarios (ticket / HR table / split runs) |
 | `ml_ner_test.py` | passed — Rules: **2** redactions (email+phone); Hybrid: **5** (adds 2 names + Microsoft) |
 
-### Submitted prospectus output (file on disk today)
+### Prospectus run (live, Rules mode — 18 Jul 2026)
 
-Original prospectus is not in the repo (real PII). What I *can* verify on `Red Herring Prospectus - Redacted.docx` right now is that our synthetic replacements are present:
+Re-ran on the original Desktop file via `python verify_metrics.py --prospectus "…\Red Herring Prospectus.docx"`. Output refreshed as `Red Herring Prospectus - Redacted.docx`.
 
-| Synthetic marker in redacted DOCX | Count |
+| | |
 | --- | ---: |
-| `@example.com` emails | 38 |
-| `Example Entity … Limited` | 77 |
-| `Example Avenue, Sample City` addresses | 27 |
-| `+91 ##### #####` phones | 13 |
-| Synthetic SSN / card / IP patterns | 0 (none of those types landed in this doc) |
-| Non-empty paragraphs scanned | 694 |
+| Changed paragraphs | 255 |
+| Unique source values replaced | 187 |
+| **Total redactionsions** | **373** |
 
-To recompute a full live redaction summary from the **original** assignment file:
+| PII type | Count |
+| --- | ---: |
+| Company | 188 |
+| Name | 62 |
+| Email | 50 |
+| Address | 49 |
+| Phone | 24 |
+| SSN / card / DOB / IP | 0 in this document |
 
-```powershell
-python verify_metrics.py --prospectus "C:\path\to\Red Herring Prospectus.docx"
-```
+Those four types still pass in the controlled suite; this prospectus just didn’t contain them.
 
 ## What’s in the repo
 

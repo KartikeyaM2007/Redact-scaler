@@ -73,18 +73,16 @@ Unit suite only — not “I labelled the whole prospectus by hand.”
 - `generic_docx_test.py` — passed (3 layouts)  
 - `ml_ner_test.py` — passed (Rules 2 vs Hybrid 5)
 
-### What’s inside the submitted redacted prospectus (counted today)
+### Prospectus (live Rules run, 18 Jul 2026)
 
-| Marker | Count |
+| | |
 | --- | ---: |
-| Non-empty paragraphs | 694 |
-| `@example.com` emails | 38 |
-| `Example Entity … Limited` | 77 |
-| Example Avenue addresses | 27 |
-| Synthetic `+91` phones | 13 |
+| Changed paragraphs | 255 |
+| Unique replacements | 187 |
+| Total redactionsions | **373** |
+| company / name / email / address / phone | 188 / 62 / 50 / 49 / 24 |
 
-Original file isn’t in git. To reprint a full engine summary:  
-`python verify_metrics.py --prospectus "PATH\original.docx"`
+No SSN/card/DOB/IP in this particular file (still covered by the unit suite). Evidence: `verified_metrics.json`.
 
 ---
 

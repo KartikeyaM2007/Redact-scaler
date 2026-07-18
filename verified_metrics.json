@@ -175,7 +175,7 @@
     "file": "E:\\Scaler_file\\pii_redaction_solution\\Red Herring Prospectus - Redacted.docx",
     "non_empty_paragraphs": 694,
     "synthetic_marker_counts": {
-      "example_com_emails": 38,
+      "example_com_emails": 39,
       "example_entity_company": 77,
       "example_avenue_address": 27,
       "synthetic_phone_91": 13,
@@ -186,7 +186,18 @@
     "note": "These are markers from our fake-replacement style in the submitted redacted file. They verify the output was produced by this tool; they are not the original prospectus redaction summary."
   },
   "prospectus_live_run": {
-    "available": false,
-    "reason": "Original prospectus .docx was not provided to this script. Pass --prospectus PATH to recompute live redaction counts."
+    "source": "C:\\Users\\USER\\Desktop\\Red Herring Prospectus.docx",
+    "output": "E:\\Scaler_file\\pii_redaction_solution\\examples\\prospectus_live_redacted.docx",
+    "mode": "rules",
+    "changed_paragraphs": 255,
+    "unique_replacements": 187,
+    "total_redactions": 373,
+    "redactions_by_type": {
+      "address": 49,
+      "company": 188,
+      "email": 50,
+      "name": 62,
+      "phone": 24
+    }
   }
 }

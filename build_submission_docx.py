@@ -108,25 +108,25 @@ def main() -> None:
     bullet("generic_docx_test.py — passed (3 layouts)")
     bullet("ml_ner_test.py — passed (Rules 2 vs Hybrid 5)")
 
-    h("What's inside the submitted redacted prospectus (counted today)", 3)
-    t4 = doc.add_table(rows=6, cols=2)
+    h("Prospectus (live Rules run, 18 Jul 2026)", 3)
+    t4 = doc.add_table(rows=9, cols=2)
     t4.style = "Table Grid"
     for i, (a, b) in enumerate(
         [
-            ("Marker", "Count"),
-            ("Non-empty paragraphs", "694"),
-            ("@example.com emails", "38"),
-            ("Example Entity … Limited", "77"),
-            ("Example Avenue addresses", "27"),
-            ("Synthetic +91 phones", "13"),
+            ("Metric", "Value"),
+            ("Changed paragraphs", "255"),
+            ("Unique replacements", "187"),
+            ("Total redactions", "373"),
+            ("company", "188"),
+            ("name", "62"),
+            ("email", "50"),
+            ("address", "49"),
+            ("phone", "24"),
         ]
     ):
         t4.cell(i, 0).text = a
         t4.cell(i, 1).text = b
-    p(
-        "Original file isn't in git. To reprint a full engine summary: "
-        'python verify_metrics.py --prospectus "PATH\\original.docx"'
-    )
+    p("No SSN/card/DOB/IP in this particular file (still covered by the unit suite). Evidence: verified_metrics.json.")
 
     h("Trade-offs", 2)
     p(

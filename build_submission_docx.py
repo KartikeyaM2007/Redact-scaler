@@ -46,11 +46,15 @@ def main() -> None:
     p("Rules — regex + labels. Strong on structured PII.")
     p("Hybrid — rules + spaCy en_core_web_sm for bare prose names/orgs.")
     p("ml_ner_test.py: Rules 2 · Hybrid 5 (adds Alice Johnson, Robert Chen, Microsoft).")
+
+    h("Screenshots (kept)", 3)
+    p("Rules mode — local UI:")
     doc.add_picture(str(ASSETS / "frontend-rules-mode.png"), width=Inches(6.2))
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p("ML / NER hybrid — local UI:")
     doc.add_picture(str(ASSETS / "frontend-ml-ner-mode.png"), width=Inches(6.2))
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p("HF live Space is static → ML disabled on purpose:")
+    p("HF live Space — ML disabled on purpose (static demo):")
     doc.add_picture(str(ASSETS / "hf-space-ml-disabled.png"), width=Inches(4.5))
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
 

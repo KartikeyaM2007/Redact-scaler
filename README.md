@@ -64,6 +64,22 @@ Raw dump: [`verified_metrics.json`](verified_metrics.json). Full write-up: [`EVA
 
 SSN/card/DOB/IP: 0 in this file (still covered in the labelled suite).
 
+## Screenshots (kept)
+
+Rules mode local UI — structured fields redacted; bare prose names left alone:
+
+![Rules mode frontend](assets/frontend-rules-mode.png)
+
+ML / NER hybrid — same fixture, spaCy also hits unlabelled people/org:
+
+![ML NER mode frontend](assets/frontend-ml-ner-mode.png)
+
+Live Hugging Face Space — ML toggle disabled on purpose (static demo):
+
+![HF Space ML disabled](assets/hf-space-ml-disabled.png)
+
+Same three images are embedded in [`SUBMISSION.docx`](SUBMISSION.docx).
+
 ## What’s in the repo
 
 | Path | Role |

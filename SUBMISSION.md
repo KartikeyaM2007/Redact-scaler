@@ -24,13 +24,19 @@ Order/ticket/CIN/DIN IDs are **not** treated as PII (precision choice).
 
 `ml_ner_test.py`: Rules **2** · Hybrid **5** (adds Alice Johnson, Robert Chen, Microsoft).
 
-![rules](assets/frontend-rules-mode.png)
+### Screenshots (kept)
 
-![ml](assets/frontend-ml-ner-mode.png)
+Rules mode — local UI:
 
-HF live Space is static → ML disabled on purpose:
+![Rules mode frontend](assets/frontend-rules-mode.png)
 
-![hf](assets/hf-space-ml-disabled.png)
+ML / NER hybrid — local UI:
+
+![ML NER mode frontend](assets/frontend-ml-ner-mode.png)
+
+HF live Space — ML disabled on purpose (static demo):
+
+![HF Space ML disabled](assets/hf-space-ml-disabled.png)
 
 ---
 

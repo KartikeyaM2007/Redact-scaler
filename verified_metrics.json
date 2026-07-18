@@ -1,41 +1,98 @@
 {
   "controlled_suite": {
-    "source": "python redact_pii.py --evaluate (live)",
-    "cases": 14,
-    "tp": 10,
-    "fp": 0,
-    "fn": 0,
-    "tn": 4,
-    "accuracy": 100.0,
-    "precision": 100.0,
-    "recall": 100.0,
-    "per_type": {
-      "name": {
-        "tp": 2
-      },
-      "email": {
-        "tp": 1
-      },
-      "phone": {
-        "tp": 1
-      },
-      "company": {
-        "tp": 1
-      },
-      "address": {
-        "tp": 1
-      },
-      "ssn": {
-        "tp": 1
-      },
-      "card": {
-        "tp": 1
-      },
-      "dob": {
-        "tp": 1
-      },
-      "ip": {
-        "tp": 1
+    "source": "python redact_pii.py --evaluate (live, automated \u2014 not hand-scored)",
+    "rules": {
+      "mode": "rules",
+      "cases": 30,
+      "tp": 19,
+      "fp": 0,
+      "fn": 0,
+      "tn": 11,
+      "accuracy": 100.0,
+      "precision": 100.0,
+      "recall": 100.0,
+      "per_type": {
+        "name": {
+          "tp": 3
+        },
+        "email": {
+          "tp": 2
+        },
+        "phone": {
+          "tp": 2
+        },
+        "company": {
+          "tp": 2
+        },
+        "address": {
+          "tp": 2
+        },
+        "ssn": {
+          "tp": 2
+        },
+        "card": {
+          "tp": 2
+        },
+        "dob": {
+          "tp": 2
+        },
+        "ip": {
+          "tp": 2
+        }
+      }
+    },
+    "rules_against_full_gold": {
+      "mode": "rules_against_full_gold",
+      "cases": 30,
+      "tp": 19,
+      "fp": 0,
+      "fn": 3,
+      "tn": 8,
+      "accuracy": 90.0,
+      "precision": 100.0,
+      "recall": 86.4,
+      "per_type": {},
+      "note": "Rules engine scored against the full PII labels (including unlabelled prose names/orgs). Lower recall here is expected \u2014 that gap is why hybrid exists."
+    },
+    "hybrid": {
+      "mode": "hybrid",
+      "cases": 30,
+      "tp": 22,
+      "fp": 4,
+      "fn": 0,
+      "tn": 6,
+      "accuracy": 87.5,
+      "precision": 84.6,
+      "recall": 100.0,
+      "per_type": {
+        "name": {
+          "tp": 5
+        },
+        "email": {
+          "tp": 2
+        },
+        "phone": {
+          "tp": 2
+        },
+        "company": {
+          "tp": 3,
+          "fp": 4
+        },
+        "address": {
+          "tp": 2
+        },
+        "ssn": {
+          "tp": 2
+        },
+        "card": {
+          "tp": 2
+        },
+        "dob": {
+          "tp": 2
+        },
+        "ip": {
+          "tp": 2
+        }
       }
     }
   },
@@ -173,12 +230,12 @@
   },
   "submitted_redacted_output": {
     "file": "E:\\Scaler_file\\pii_redaction_solution\\Red Herring Prospectus - Redacted.docx",
-    "non_empty_paragraphs": 694,
+    "non_empty_paragraphs": 809,
     "synthetic_marker_counts": {
       "example_com_emails": 39,
-      "example_entity_company": 77,
-      "example_avenue_address": 27,
-      "synthetic_phone_91": 13,
+      "example_entity_company": 94,
+      "example_avenue_address": 28,
+      "synthetic_phone_91": 17,
       "synthetic_ssn_900": 0,
       "synthetic_card_4111": 0,
       "synthetic_ip_203": 0

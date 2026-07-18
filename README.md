@@ -26,55 +26,43 @@ python redact_pii.py --mode hybrid "input.docx" "redacted.docx"
 python web_app.py
 ```
 
-## Verified metrics (re-run 18 Jul 2026)
+## Verified metrics (automated — 18 Jul 2026)
 
-I re-ran the checks with `python verify_metrics.py`. Raw JSON: [`verified_metrics.json`](verified_metrics.json).
+Not hand-scored. Recompute anytime:
 
-### Controlled labelled suite (`python redact_pii.py --evaluate`)
+```powershell
+python redact_pii.py --evaluate
+python verify_metrics.py --prospectus "C:\Users\USER\Desktop\Red Herring Prospectus.docx"
+```
 
-14 cases I wrote: positives for every required PII type, plus negatives (offer date, CIN-like id, order id, generic business phrase).
+Raw dump: [`verified_metrics.json`](verified_metrics.json). Full write-up: [`EVALUATION_REPORT.md`](EVALUATION_REPORT.md).
 
-| Metric | Value |
-| --- | ---: |
-| Cases | 14 |
-| TP | 10 |
-| FP | 0 |
-| FN | 0 |
-| TN | 4 |
-| Accuracy | **100.0%** |
-| Precision | **100.0%** |
-| Recall | **100.0%** |
+### Labelled suite (30 automated cases)
 
-These scores are for that suite only — not a claim that every paragraph of the prospectus is perfectly labelled.
+| View | Accuracy | Precision | Recall | Notes |
+| --- | ---: | ---: | ---: | --- |
+| Rules (own labels) | 100.0% | 100.0% | 100.0% | Structured PII + negatives |
+| Rules vs **full** gold | **90.0%** | **100.0%** | **86.4%** | Misses bare prose names/orgs (FN=3) |
+| Hybrid (rules+spaCy) | **87.5%** | **84.6%** | **100.0%** | Catches bare entities; some ORG false positives (FP=4) |
 
-### Fixture runs (same verification pass)
+### Fixtures
 
 | Check | Result |
 | --- | --- |
-| `manual_test.py` | passed — all 9 PII types exercised; originals gone; non-PII control kept |
-| `generic_docx_test.py` | passed — 3 scenarios (ticket / HR table / split runs) |
-| `ml_ner_test.py` | passed — Rules: **2** redactions (email+phone); Hybrid: **5** (adds 2 names + Microsoft) |
+| `manual_test.py` | passed — all 9 types |
+| `generic_docx_test.py` | passed — ticket / HR table / split runs |
+| `ml_ner_test.py` | passed — Rules **2** vs Hybrid **5** |
 
-### Prospectus run (live, Rules mode — 18 Jul 2026)
-
-Re-ran on the original Desktop file via `python verify_metrics.py --prospectus "…\Red Herring Prospectus.docx"`. Output refreshed as `Red Herring Prospectus - Redacted.docx`.
+### Prospectus (live Rules)
 
 | | |
 | --- | ---: |
 | Changed paragraphs | 255 |
-| Unique source values replaced | 187 |
-| **Total redactionsions** | **373** |
+| Unique replacements | 187 |
+| **Total redactions** | **373** |
+| company / name / email / address / phone | 188 / 62 / 50 / 49 / 24 |
 
-| PII type | Count |
-| --- | ---: |
-| Company | 188 |
-| Name | 62 |
-| Email | 50 |
-| Address | 49 |
-| Phone | 24 |
-| SSN / card / DOB / IP | 0 in this document |
-
-Those four types still pass in the controlled suite; this prospectus just didn’t contain them.
+SSN/card/DOB/IP: 0 in this file (still covered in the labelled suite).
 
 ## What’s in the repo
 

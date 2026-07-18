@@ -455,47 +455,137 @@ def redact_docx(source: Path, output: Path, mapping_path: Path | None = None, mo
     return summary
 
 
+# Automated labelled cases: (text, expected_types_for_rules, expected_types_for_hybrid).
+# Rules and hybrid expectations differ on unlabelled prose names/orgs.
 EVALUATION_CASES = [
-    ("Contact Person: Rashi Patil", {"name"}),
-    ("Mr. Rohan Dey attended the meeting.", {"name"}),
-    ("Email rashhi.patil@gmail.com for support.", {"email"}),
-    ("Telephone: +91 98765 43210", {"phone"}),
-    ("KSH International Limited", {"company"}),
-    ("Registered Office: 11/3 Example Road, Pune - 411 001, India", {"address"}),
-    ("SSN 123-45-6789", {"ssn"}),
-    ("Card: 4111 1111 1111 1111", {"card"}),
-    ("Date of Birth: 12/03/1990", {"dob"}),
-    ("Login from 192.168.1.10", {"ip"}),
-    ("The offer closes on 10 December 2025.", set()),
-    ("Corporate Identity Number: U28129PN1979PLC141032", set()),
-    ("Order 2025-10001 is valid.", set()),
-    ("The Book Running Lead Managers are appointed.", set()),
+    # Structured / labelled positives (both modes)
+    ("Contact Person: Rashi Patil", {"name"}, {"name"}),
+    ("Full Name: Priya Sharma", {"name"}, {"name"}),
+    ("Mr. Rohan Dey attended the meeting.", {"name"}, {"name"}),
+    ("Email rashhi.patil@gmail.com for support.", {"email"}, {"email"}),
+    ("Write to ops.desk@acme-corp.co.in today.", {"email"}, {"email"}),
+    ("Telephone: +91 98765 43210", {"phone"}, {"phone"}),
+    ("Mobile: 022-2654 7788", {"phone"}, {"phone"}),
+    ("KSH International Limited", {"company"}, {"company"}),
+    ("Acme Technologies Private Limited filed the papers.", {"company"}, {"company"}),
+    ("Registered Office: 11/3 Example Road, Pune - 411 001, India", {"address"}, {"address"}),
+    ("Home Address: 22 Baker Street, Mumbai 400001 India", {"address"}, {"address"}),
+    ("SSN 123-45-6789", {"ssn"}, {"ssn"}),
+    ("Employee SSN: 987-65-4321", {"ssn"}, {"ssn"}),
+    ("Card: 4111 1111 1111 1111", {"card"}, {"card"}),
+    ("Payment card 5500 0000 0000 0004 on file.", {"card"}, {"card"}),
+    ("Date of Birth: 12/03/1990", {"dob"}, {"dob"}),
+    ("DOB: 7 Jan 1992", {"dob"}, {"dob"}),
+    ("Login from 192.168.1.10", {"ip"}, {"ip"}),
+    ("Source IP 10.0.0.8 blocked.", {"ip"}, {"ip"}),
+    # Unlabelled prose — rules should miss; hybrid should catch
+    ("Alice Johnson joined the diligence call.", set(), {"name"}),
+    ("Robert Chen signed the side letter.", set(), {"name"}),
+    ("Microsoft provided the cloud stack.", set(), {"company"}),
+    # Negatives — must stay (precision): ticket/order/CIN/dates/business phrases
+    ("The offer closes on 10 December 2025.", set(), set()),
+    ("Corporate Identity Number: U28129PN1979PLC141032", set(), set()),
+    ("Order 2025-10001 is valid.", set(), set()),
+    ("Ticket ID TCK-88421 remains open.", set(), set()),
+    ("The Book Running Lead Managers are appointed.", set(), set()),
+    ("Issue size is Rs. 500 crore.", set(), set()),
+    ("Page 12 of 240", set(), set()),
+    ("DIN 01234567 is recorded with MCA.", set(), set()),
 ]
 
 
-def evaluate() -> dict:
+def _score_cases(mode: str) -> dict:
+    use_ner = mode == "hybrid"
     tp = fp = fn = tn = 0
-    per_type: dict[str, Counter[str]] = {kind: Counter() for kind in ("name", "email", "phone", "company", "address", "ssn", "card", "dob", "ip")}
-    for text, expected in EVALUATION_CASES:
-        found = {span.pii_type for span in detect_pii(text)}
+    per_type: dict[str, Counter[str]] = {
+        kind: Counter() for kind in ("name", "email", "phone", "company", "address", "ssn", "card", "dob", "ip")
+    }
+    for text, expected_rules, expected_hybrid in EVALUATION_CASES:
+        expected = expected_hybrid if use_ner else expected_rules
+        found = {span.pii_type for span in detect_pii(text, use_ner=use_ner)}
         types = expected | found
         for kind in types:
             if kind in expected and kind in found:
-                tp += 1; per_type[kind]["tp"] += 1
+                tp += 1
+                per_type[kind]["tp"] += 1
             elif kind in found:
-                fp += 1; per_type[kind]["fp"] += 1
+                fp += 1
+                per_type[kind]["fp"] += 1
             else:
-                fn += 1; per_type[kind]["fn"] += 1
+                fn += 1
+                per_type[kind]["fn"] += 1
         if not expected and not found:
             tn += 1
     precision = tp / (tp + fp) if tp + fp else 0.0
     recall = tp / (tp + fn) if tp + fn else 0.0
     accuracy = (tp + tn) / (tp + tn + fp + fn) if tp + tn + fp + fn else 0.0
     return {
-        "cases": len(EVALUATION_CASES), "tp": tp, "fp": fp, "fn": fn, "tn": tn,
-        "precision": precision, "recall": recall, "accuracy": accuracy,
-        "per_type": {kind: dict(values) for kind, values in per_type.items()},
+        "mode": mode,
+        "cases": len(EVALUATION_CASES),
+        "tp": tp,
+        "fp": fp,
+        "fn": fn,
+        "tn": tn,
+        "precision": precision,
+        "recall": recall,
+        "accuracy": accuracy,
+        "per_type": {kind: dict(values) for kind, values in per_type.items() if values},
     }
+
+
+def _score_rules_against_full_gold() -> dict:
+    """Score rules detections against the fuller hybrid gold labels.
+
+    This is the honest all-round view: rules miss bare prose names/orgs, so recall drops.
+    """
+    tp = fp = fn = tn = 0
+    for text, _expected_rules, expected_hybrid in EVALUATION_CASES:
+        expected = expected_hybrid
+        found = {span.pii_type for span in detect_pii(text, use_ner=False)}
+        types = expected | found
+        for kind in types:
+            if kind in expected and kind in found:
+                tp += 1
+            elif kind in found:
+                fp += 1
+            else:
+                fn += 1
+        if not expected and not found:
+            tn += 1
+    precision = tp / (tp + fp) if tp + fp else 0.0
+    recall = tp / (tp + fn) if tp + fn else 0.0
+    accuracy = (tp + tn) / (tp + tn + fp + fn) if tp + tn + fp + fn else 0.0
+    return {
+        "mode": "rules_against_full_gold",
+        "cases": len(EVALUATION_CASES),
+        "tp": tp,
+        "fp": fp,
+        "fn": fn,
+        "tn": tn,
+        "precision": precision,
+        "recall": recall,
+        "accuracy": accuracy,
+        "note": (
+            "Rules engine scored against the full PII labels (including unlabelled "
+            "prose names/orgs). Lower recall here is expected — that gap is why hybrid exists."
+        ),
+    }
+
+
+def evaluate(mode: str = "rules") -> dict:
+    """Automated labelled-suite metrics. mode: rules | hybrid | both."""
+    if mode == "both":
+        rules = _score_cases("rules")
+        hybrid = _score_cases("hybrid")
+        rules_full = _score_rules_against_full_gold()
+        return {
+            "rules": rules,
+            "rules_against_full_gold": rules_full,
+            "hybrid": hybrid,
+        }
+    if mode not in VALID_MODES:
+        raise ValueError(f"Unsupported evaluation mode {mode!r}.")
+    return _score_cases(mode)
 
 
 def main() -> None:
@@ -509,10 +599,10 @@ def main() -> None:
         default="rules",
         help="Redaction engine: rules for deterministic regex/context rules, hybrid for rules plus spaCy NER.",
     )
-    parser.add_argument("--evaluate", action="store_true", help="Print metrics for the deterministic labelled test suite.")
+    parser.add_argument("--evaluate", action="store_true", help="Print automated labelled-suite metrics (rules + hybrid).")
     args = parser.parse_args()
     if args.evaluate:
-        print(json.dumps(evaluate(), indent=2))
+        print(json.dumps(evaluate("both"), indent=2))
         return
     if not args.input or not args.output:
         parser.error("input and output are required unless --evaluate is used")

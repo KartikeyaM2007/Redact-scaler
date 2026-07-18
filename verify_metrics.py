@@ -28,10 +28,9 @@ def run_json(cmd: list[str]) -> dict:
     return json.loads(proc.stdout)
 
 
-def controlled_suite() -> dict:
-    result = evaluate()
-    return {
-        "source": "python redact_pii.py --evaluate (live)",
+def _pack_suite(result: dict) -> dict:
+    packed = {
+        "mode": result["mode"],
         "cases": result["cases"],
         "tp": result["tp"],
         "fp": result["fp"],
@@ -40,8 +39,23 @@ def controlled_suite() -> dict:
         "accuracy": round(result["accuracy"] * 100, 1),
         "precision": round(result["precision"] * 100, 1),
         "recall": round(result["recall"] * 100, 1),
-        "per_type": result["per_type"],
+        "per_type": result.get("per_type") or {},
     }
+    if result.get("note"):
+        packed["note"] = result["note"]
+    return packed
+
+
+def controlled_suite() -> dict:
+    both = evaluate("both")
+    packed = {
+        "source": "python redact_pii.py --evaluate (live, automated — not hand-scored)",
+        "rules": _pack_suite(both["rules"]),
+        "rules_against_full_gold": _pack_suite(both["rules_against_full_gold"]),
+        "hybrid": _pack_suite(both["hybrid"]),
+    }
+    packed["rules_against_full_gold"]["note"] = both["rules_against_full_gold"].get("note")
+    return packed
 
 
 def fixture_checks() -> dict:

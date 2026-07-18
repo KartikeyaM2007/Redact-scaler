@@ -2,58 +2,90 @@
 
 Kartikeya Mishra — Scaler PII Redaction assignment  
 
-**Verified:** 18 Jul 2026 via `python verify_metrics.py`  
-**Evidence file:** `verified_metrics.json`
+**How scored:** fully automated (`python redact_pii.py --evaluate` + `python verify_metrics.py`). Not hand-tallied.  
+**Evidence:** `verified_metrics.json` (regenerated 18 Jul 2026)
 
-## Evaluation approach
+## What “all-round” means here
 
-1. **Controlled suite** — `python redact_pii.py --evaluate`  
-   Fixed labelled strings for every required PII type, plus negatives I refuse to redact (offer dates, CIN-like ids, order numbers, bland “Book Running Lead Managers” phrasing). From that I compute TP / FP / FN / TN → accuracy, precision, recall.
+One tiny perfect table isn’t enough. I report:
 
-2. **End-to-end fixtures** — `manual_test.py`, `generic_docx_test.py`  
-   Build real `.docx` files, redact, assert originals are gone and control IDs remain.
+1. Automated labelled suite (**30 cases**) — Rules, Rules-vs-full-gold, and Hybrid  
+2. DOCX fixtures — `manual_test.py`, `generic_docx_test.py`, `ml_ner_test.py`  
+3. Live prospectus redaction counts on the original assignment file  
 
-3. **Rules vs ML** — `ml_ner_test.py`  
-   Same unlabelled prose under both modes; hybrid must remove the extra PERSON/ORG values Rules leave behind.
+**Precision policy:** order / ticket / CIN / DIN / page numbers / offer dates are **not** PII. Leaving them is intentional.
 
-4. **Assignment output check** — inspect submitted `Red Herring Prospectus - Redacted.docx` for this tool’s synthetic replacement markers (original prospectus kept out of git because it contains real PII).
+---
 
-**Precision policy:** order / ticket / CIN-style identifiers are **not** treated as PII. Leaving them is intentional.
+## 1) Automated labelled suite (30 cases)
 
-## Controlled suite results (live)
+Covers every required PII type (usually twice), unlabelled prose names/orgs, and negatives (ticket/order/CIN/etc.).
+
+### A. Rules vs its own expectations  
+(rules are not asked to catch bare prose names)
 
 | Metric | Value |
 | --- | ---: |
-| Cases | 14 |
-| True positives (TP) | 10 |
-| False positives (FP) | 0 |
-| False negatives (FN) | 0 |
-| True negatives (TN) | 4 |
-| **Accuracy** | **100.0%** |
-| **Precision** | **100.0%** |
-| **Recall** | **100.0%** |
+| Cases | 30 |
+| TP | 19 |
+| FP | 0 |
+| FN | 0 |
+| TN | 11 |
+| Accuracy | 100.0% |
+| Precision | 100.0% |
+| Recall | 100.0% |
 
-Per-type TPs in that suite: name×2, email×1, phone×1, company×1, address×1, ssn×1, card×1, dob×1, ip×1.
+### B. Rules vs **full** PII gold (all-round honesty)  
+Same cases, but gold includes unlabelled Alice Johnson / Robert Chen / Microsoft. Rules miss those → recall drops. This is the number that shows why hybrid exists.
 
-## Fixture results (live)
+| Metric | Value |
+| --- | ---: |
+| Cases | 30 |
+| TP | 19 |
+| FP | 0 |
+| FN | 3 |
+| TN | 8 |
+| Accuracy | **90.0%** |
+| Precision | **100.0%** |
+| Recall | **86.4%** |
 
-| Script | Passed | Notes |
-| --- | --- | --- |
-| `manual_test.py` | yes | 9 types; 0 originals left; control retained |
-| `generic_docx_test.py` | yes | ticket / HR table / split runs all passed |
-| `ml_ner_test.py` | yes | Rules redactions = 2; Hybrid = 5 (+3 unlabelled entities) |
+### C. Hybrid (rules + spaCy)
 
-## Prospectus run (live, Rules — 18 Jul 2026)
+| Metric | Value |
+| --- | ---: |
+| Cases | 30 |
+| TP | 22 |
+| FP | 4 |
+| FN | 0 |
+| TN | 6 |
+| Accuracy | **87.5%** |
+| Precision | **84.6%** |
+| Recall | **100.0%** |
 
-Source: original `Red Herring Prospectus.docx` (kept off git).  
-Command: `python verify_metrics.py --prospectus "…\Red Herring Prospectus.docx"`.  
-Output: `Red Herring Prospectus - Redacted.docx`.
+Hybrid picks up the bare names/orgs (recall up) but spaCy also over-tags some ORG-ish junk on negatives (precision down). That’s the real tradeoff — not a fake 100% everywhere.
+
+---
+
+## 2) DOCX fixture runs (automated)
+
+| Script | Result |
+| --- | --- |
+| `manual_test.py` | passed — all 9 PII types; originals gone; control kept |
+| `generic_docx_test.py` | passed — ticket / HR table / split runs |
+| `ml_ner_test.py` | passed — Rules **2** redactions vs Hybrid **5** |
+
+---
+
+## 3) Prospectus (live Rules run)
+
+Source: original Desktop `Red Herring Prospectus.docx`  
+Command: `python verify_metrics.py --prospectus "…\Red Herring Prospectus.docx"`
 
 | | |
 | --- | ---: |
 | Changed paragraphs | 255 |
 | Unique replacements | 187 |
-| Total redactionsions | **373** |
+| **Total redactionsions** | **373** |
 
 | Type | Count |
 | --- | ---: |
@@ -64,8 +96,12 @@ Output: `Red Herring Prospectus - Redacted.docx`.
 | phone | 24 |
 | ssn / card / dob / ip | 0 in this file |
 
-SSN/card/DOB/IP still clear the controlled suite; they simply weren’t present in this prospectus.
+Those four types still clear the labelled suite; this prospectus just didn’t contain them.
 
-## Limits
+---
 
-Unit scores are high because the suite is designed and labelled. Real recall on bare names still needs hybrid mode; addresses and domain legalese can still slip. Extending to a new PII type = add a detector in `detect_pii` / known-value seeding, plus a row in `EVALUATION_CASES` and a fixture assert.
+## Limits / extending
+
+- Unit + fixture scores are automated and reproducible.  
+- Prospectus counts are engine tallies from a live run, not a human page-by-page gold label.  
+- New PII type: add detector + labelled rows in `EVALUATION_CASES` + a fixture assert, then re-run `verify_metrics.py`.

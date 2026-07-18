@@ -4,97 +4,62 @@ Kartikeya Mishra
 GitHub: https://github.com/KartikeyaM2007/Redact-scaler  
 Try Rules online: https://huggingface.co/spaces/Kartikeym2007/Redact  
 
-I’m submitting this for the Scaler AI Labs PII redaction task. Numbers below were re-checked with `python verify_metrics.py` on **18 Jul 2026** (`verified_metrics.json`).
+Numbers below are from **automated** runs (`python redact_pii.py --evaluate` + `python verify_metrics.py`) on **18 Jul 2026**. Evidence: `verified_metrics.json`. Not eyeballed by hand.
 
 ---
 
-## The job, in my words
+## The job
 
-I needed a script that reads a Word file full of personal data (they gave a Red Herring Prospectus; the same code also works on ticket-style docs) and writes a second `.docx` where real PII is swapped for fake but believable values. Masking with `****` wasn’t the ask — they wanted stand-ins like a fake name/email so the doc still looks readable.
+Script reads a `.docx`, swaps PII for stable fakes, writes another `.docx`. Covers names, emails, phones, companies, addresses, SSNs, Luhn cards, DOBs, IPs.  
+Core: `redact_pii.py` · Output: `Red Herring Prospectus - Redacted.docx` · UI: `web_app.py`  
 
-I cover at least: names, emails, phones, companies, addresses, SSNs, cards (Luhn), DOBs, IPs.
-
-Core file: `redact_pii.py`  
-My redacted prospectus: `Red Herring Prospectus - Redacted.docx`  
-Optional UI: `web_app.py`
-
-I do **not** redact order/ticket/CIN-style IDs. That’s a deliberate precision choice.
+Order/ticket/CIN/DIN IDs are **not** treated as PII (precision choice).
 
 ---
 
-## How detection works (two modes)
+## Rules vs ML / NER
 
-**Rules** — regexes + labels I care about (`Contact Person`, `DOB`, `Registered Office`, Ltd/LLC endings, label→value table cells). Good for structured PII; I can usually explain each hit.
+**Rules** — regex + labels. Strong on structured PII.  
+**Hybrid** — rules + spaCy `en_core_web_sm` for bare prose names/orgs.
 
-**Hybrid (ML / NER)** — rules + spaCy `en_core_web_sm`. Added because rules ignore bare names/companies in prose. Verified: Rules = 2 hits (email+phone); Hybrid = 5 (adds Alice Johnson, Robert Chen, Microsoft). See `ml_ner_test.py`.
-
-### Screens from my local UI
-
-Rules:
+`ml_ner_test.py`: Rules **2** · Hybrid **5** (adds Alice Johnson, Robert Chen, Microsoft).
 
 ![rules](assets/frontend-rules-mode.png)
 
-Hybrid:
-
 ![ml](assets/frontend-ml-ner-mode.png)
 
----
+HF live Space is static → ML disabled on purpose:
 
-## Live demo vs local
-
-HF Space is static → no Python spaCy → ML toggle stays off on purpose.
-
-![hf note](assets/hf-space-ml-disabled.png)
-
-Local: `pip install -r requirements.txt` then `python web_app.py`, or `python redact_pii.py --mode hybrid in.docx out.docx`.
+![hf](assets/hf-space-ml-disabled.png)
 
 ---
 
-## Verified evaluation numbers
+## All-round evaluation (automated)
 
-### Accuracy / precision / recall (`redact_pii.py --evaluate`)
+### Labelled suite — 30 cases
 
-| Metric | Value |
-| --- | ---: |
-| Cases | 14 |
-| TP | 10 |
-| FP | 0 |
-| FN | 0 |
-| TN | 4 |
-| Accuracy | 100.0% |
-| Precision | 100.0% |
-| Recall | 100.0% |
+| View | Acc | Prec | Rec | TP/FP/FN/TN |
+| --- | ---: | ---: | ---: | --- |
+| Rules (own labels) | 100.0% | 100.0% | 100.0% | 19/0/0/11 |
+| Rules vs full gold | **90.0%** | **100.0%** | **86.4%** | 19/0/3/8 |
+| Hybrid | **87.5%** | **84.6%** | **100.0%** | 22/4/0/6 |
 
-Unit suite only — not “I labelled the whole prospectus by hand.”
+Full-gold Rules recall 86.4% = misses 3 unlabelled entities. Hybrid recall 100% but precision 84.6% from spaCy ORG false positives. That’s the real tradeoff.
 
-### Other live checks
+### Fixtures
+manual + generic + ml_ner — all passed.
 
-- `manual_test.py` — passed (all 9 types)  
-- `generic_docx_test.py` — passed (3 layouts)  
-- `ml_ner_test.py` — passed (Rules 2 vs Hybrid 5)
-
-### Prospectus (live Rules run, 18 Jul 2026)
-
-| | |
-| --- | ---: |
-| Changed paragraphs | 255 |
-| Unique replacements | 187 |
-| Total redactionsions | **373** |
-| company / name / email / address / phone | 188 / 62 / 50 / 49 / 24 |
-
-No SSN/card/DOB/IP in this particular file (still covered by the unit suite). Evidence: `verified_metrics.json`.
+### Prospectus (live Rules)
+**373** redactions · 255 paragraphs · 187 unique · company 188 / name 62 / email 50 / address 49 / phone 24.
 
 ---
 
 ## Trade-offs
 
-Rules miss bare names; hybrid helps but isn’t perfect on legalese. Weird multi-line addresses still hurt. Free cloud for spaCy didn’t stick, so local is the real ML path.
+Rules miss bare names; hybrid catches them and sometimes over-tags. Addresses can still be messy. Local spaCy is the real ML path; static HF is Rules-only.
 
----
-
-## Grading pack
-
-1. Code — repo / `redact_pii.py`  
-2. Output — `Red Herring Prospectus - Redacted.docx`  
-3. This note + `EVALUATION_REPORT.md`  
-4. Recompute — `python verify_metrics.py`
+## Re-run
+```text
+python redact_pii.py --evaluate
+python verify_metrics.py --prospectus "C:\Users\USER\Desktop\Red Herring Prospectus.docx"
+```

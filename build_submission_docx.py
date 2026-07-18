@@ -30,7 +30,8 @@ def main() -> None:
     p("Try Rules online: https://huggingface.co/spaces/Kartikeym2007/Redact")
     p(
         "I'm submitting this for the Scaler AI Labs PII redaction task. "
-        "Below is how I solved it — not a generic tutorial rewrite."
+        "Numbers below were re-checked with python verify_metrics.py on 18 Jul 2026 "
+        "(examples/verified_metrics.json)."
     )
 
     h("The job, in my words", 2)
@@ -41,147 +42,104 @@ def main() -> None:
         "Masking with **** wasn't the ask — they wanted stand-ins like a fake name/email "
         "so the doc still looks readable."
     )
-    p("I cover at least:")
-    for item in [
-        "names",
-        "emails",
-        "phones",
-        "companies",
-        "addresses",
-        "SSNs",
-        "cards (I check Luhn so random digit noise doesn't get wiped)",
-        "DOBs",
-        "IPs",
-    ]:
-        bullet(item)
+    p("I cover at least: names, emails, phones, companies, addresses, SSNs, cards (Luhn), DOBs, IPs.")
     p("Core file: redact_pii.py")
     p("My redacted prospectus: Red Herring Prospectus - Redacted.docx")
-    p("Optional UI when I'm testing modes: web_app.py")
+    p("Optional UI: web_app.py")
+    p("I do not redact order/ticket/CIN-style IDs. That's a deliberate precision choice.")
 
     h("How detection works (two modes)", 2)
-    p("I didn't bet everything on one approach.")
-
-    h("Rules", 3)
     p(
-        "Regexes plus labels I care about (Contact Person, DOB, Registered Office, "
-        "Ltd/LLC-style company endings, adjacent table cells that look like label → value). "
-        "This is what I trust for emails, phones, SSN patterns, cards, IPs, labelled dates. "
-        "When something gets replaced, I can usually explain why."
-    )
-
-    h("Hybrid (ML / NER)", 3)
-    p(
-        "Keep those rules, then run spaCy's en_core_web_sm on top. I added this because "
-        "plain rules ignore names/companies sitting in normal sentences with no Name: prefix. "
-        "My check file has Alice Johnson, Robert Chen, and Microsoft in prose. Rules only "
-        "clean the email/phone. Hybrid also hits the three unlabelled ones. That's what "
-        "ml_ner_test.py is for — so nobody thinks the UI toggle is fake."
+        "Rules — regexes + labels I care about (Contact Person, DOB, Registered Office, "
+        "Ltd/LLC endings, label→value table cells). Good for structured PII; I can usually explain each hit."
     )
     p(
-        "Same fake for the same original value inside one run (hash-based mapping). "
-        "I don't ship the mapping file; that would leak the originals."
+        "Hybrid (ML / NER) — rules + spaCy en_core_web_sm. Added because rules ignore bare "
+        "names/companies in prose. Verified: Rules = 2 hits (email+phone); Hybrid = 5 "
+        "(adds Alice Johnson, Robert Chen, Microsoft). See ml_ner_test.py."
     )
 
     table = doc.add_table(rows=3, cols=2)
     table.style = "Table Grid"
     table.cell(0, 0).text = "Mode"
-    table.cell(0, 1).text = "On my ML fixture"
+    table.cell(0, 1).text = "ml_ner_test.py (live)"
     table.cell(1, 0).text = "Rules"
-    table.cell(1, 1).text = "email + phone (2)"
+    table.cell(1, 1).text = "2 redactions (email + phone)"
     table.cell(2, 0).text = "Hybrid"
-    table.cell(2, 1).text = "email + phone + 2 names + Microsoft (5)"
+    table.cell(2, 1).text = "5 redactions (+ 2 names + Microsoft)"
 
     h("Screens from my local UI", 3)
-    p("Rules run (structured fields go; loose prose names stay):")
+    p("Rules:")
     doc.add_picture(str(ASSETS / "frontend-rules-mode.png"), width=Inches(6.2))
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    p("Hybrid run (spaCy picks up the loose names/org too):")
+    p("Hybrid:")
     doc.add_picture(str(ASSETS / "frontend-ml-ner-mode.png"), width=Inches(6.2))
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    h("Live demo vs local (don't get confused)", 2)
-    p(
-        "The Hugging Face link is a static Space. Browser only. No Python, so no spaCy there. "
-        "I tried free Gradio/Docker on HF — that needs PRO now. I also tried Render; "
-        "build/RAM issues on the big prospectus weren't worth fighting for a free host."
-    )
-    p("So the live page shows Rules, and ML is intentionally off. I'm not labelling it as \"full ML online\" when it isn't.")
+    h("Live demo vs local", 2)
+    p("HF Space is static → no Python spaCy → ML toggle stays off on purpose.")
     doc.add_picture(str(ASSETS / "hf-space-ml-disabled.png"), width=Inches(4.5))
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p("To actually flip Rules ↔ ML: pip install -r requirements.txt then python web_app.py")
-    p('Or CLI: python redact_pii.py --mode hybrid in.docx out.docx')
+    p("Local: pip install -r requirements.txt then python web_app.py")
 
-    h("Libraries I used", 2)
-    bullet("python-docx — read/write the Word structure")
-    bullet("regex / context rules — structured PII")
-    bullet("spaCy + en_core_web_sm — extra PERSON/ORG recall in hybrid")
-    p("That's it for the engine. No giant LLM API in the loop.")
-
-    h("Numbers I can defend", 2)
-    h("Small labelled suite (python redact_pii.py --evaluate)", 3)
-    p(
-        "I wrote 14 fixed cases: every required type shows up, plus stuff that should not "
-        "get nuked (plain offer dates, CIN-looking IDs, order numbers, bland corporate phrasing)."
-    )
-    t3 = doc.add_table(rows=8, cols=2)
+    h("Verified evaluation numbers", 2)
+    h("Accuracy / precision / recall (redact_pii.py --evaluate)", 3)
+    t3 = doc.add_table(rows=9, cols=2)
     t3.style = "Table Grid"
     for i, (a, b) in enumerate(
         [
-            ("Metric", "Result"),
+            ("Metric", "Value"),
+            ("Cases", "14"),
             ("TP", "10"),
             ("FP", "0"),
             ("FN", "0"),
             ("TN", "4"),
-            ("Accuracy", "100%"),
-            ("Precision", "100%"),
-            ("Recall", "100%"),
+            ("Accuracy", "100.0%"),
+            ("Precision", "100.0%"),
+            ("Recall", "100.0%"),
         ]
     ):
         t3.cell(i, 0).text = a
         t3.cell(i, 1).text = b
+    p('Unit suite only — not "I labelled the whole prospectus by hand."')
+
+    h("Other live checks", 3)
+    bullet("manual_test.py — passed (all 9 types)")
+    bullet("generic_docx_test.py — passed (3 layouts)")
+    bullet("ml_ner_test.py — passed (Rules 2 vs Hybrid 5)")
+
+    h("What's inside the submitted redacted prospectus (counted today)", 3)
+    t4 = doc.add_table(rows=6, cols=2)
+    t4.style = "Table Grid"
+    for i, (a, b) in enumerate(
+        [
+            ("Marker", "Count"),
+            ("Non-empty paragraphs", "694"),
+            ("@example.com emails", "38"),
+            ("Example Entity … Limited", "77"),
+            ("Example Avenue addresses", "27"),
+            ("Synthetic +91 phones", "13"),
+        ]
+    ):
+        t4.cell(i, 0).text = a
+        t4.cell(i, 1).text = b
     p(
-        'Important: this is my unit check, not "I hand-labelled the whole prospectus." '
-        "Don't read it as perfect real-world performance."
+        "Original file isn't in git. To reprint a full engine summary: "
+        'python verify_metrics.py --prospectus "PATH\\original.docx"'
     )
 
-    h("Prospectus", 3)
+    h("Trade-offs", 2)
     p(
-        "On the assignment file (Rules), last run I logged: 229 paragraphs touched, "
-        "347 replacements, 174 unique originals. Mix was mostly company/email/name/address/phone. "
-        "That particular doc didn't throw SSN/card/DOB/IP at me; those still pass in the unit suite."
+        "Rules miss bare names; hybrid helps but isn't perfect on legalese. "
+        "Weird multi-line addresses still hurt. Free cloud for spaCy didn't stick, "
+        "so local is the real ML path."
     )
 
-    h("Extra checks", 3)
-    p(
-        "generic_docx_test.py — three homemade layouts (ticket, HR table, split runs). "
-        "Seeded PII gone, control ticket-ish IDs kept."
-    )
-    p("ml_ner_test.py — proves hybrid ≠ rules on unlabelled prose.")
-
-    h("What still hurts / what I'd do next", 2)
-    p(
-        "Rules miss bare names. Hybrid helps, but en_core_web_sm is general English — "
-        "legal prospectus wording can still dodge it, and if I crank NER too hard I'll "
-        "start eating random Title Case junk. Addresses across weird line breaks are still "
-        "annoying. Free cloud for spaCy didn't work out for me, so local is the real ML path."
-    )
-    p(
-        "If this were production, I'd sample real pages, have someone label them, then tune — "
-        "maybe a domain NER later. Right now it's a solid assignment tool, not a compliance product."
-    )
-
-    h("What to open when grading", 2)
-    bullet("Code: repo above (redact_pii.py)")
-    bullet("Output: Red Herring Prospectus - Redacted.docx")
-    bullet("This write-up")
-    bullet("EVALUATION_REPORT.md if you want the shorter metrics sheet")
-    p("Rerun: python redact_pii.py --evaluate / manual_test.py / generic_docx_test.py / ml_ner_test.py")
-    p(
-        "I built this for the Scaler brief: fake replacements, the nine PII buckets, "
-        "measurable precision/recall on my suite, and an honest split between the static "
-        "demo and the local spaCy switch."
-    )
+    h("Grading pack", 2)
+    bullet("Code — repo / redact_pii.py")
+    bullet("Output — Red Herring Prospectus - Redacted.docx")
+    bullet("This note + EVALUATION_REPORT.md")
+    bullet("Recompute — python verify_metrics.py")
 
     doc.save(OUT)
     print(f"Wrote {OUT} ({OUT.stat().st_size} bytes)")

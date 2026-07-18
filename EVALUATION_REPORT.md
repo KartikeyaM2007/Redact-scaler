@@ -1,39 +1,65 @@
 # Evaluation Report
 
-Kartikeya Mishra — Scaler PII Redaction assignment
+Kartikeya Mishra — Scaler PII Redaction assignment  
 
-## What I measured
+**Verified:** 18 Jul 2026 via `python verify_metrics.py`  
+**Evidence file:** `verified_metrics.json`
 
-I evaluate two layers:
+## Evaluation approach
 
-1. **Rules** in `redact_pii.py` — regex + context for structured / labelled PII, with stable fake replacements.  
-2. **Hybrid** — same rules plus spaCy `en_core_web_sm` when I turn on `--mode hybrid` (or ML / NER in the local UI).
+1. **Controlled suite** — `python redact_pii.py --evaluate`  
+   Fixed labelled strings for every required PII type, plus negatives I refuse to redact (offer dates, CIN-like ids, order numbers, bland “Book Running Lead Managers” phrasing). From that I compute TP / FP / FN / TN → accuracy, precision, recall.
 
-I’m not pretending the unit scores below equal “perfect on every page of the prospectus.” They’re for a fixed labelled suite I control.
+2. **End-to-end fixtures** — `manual_test.py`, `generic_docx_test.py`  
+   Build real `.docx` files, redact, assert originals are gone and control IDs remain.
 
-## Controlled suite (`python redact_pii.py --evaluate`)
+3. **Rules vs ML** — `ml_ner_test.py`  
+   Same unlabelled prose under both modes; hybrid must remove the extra PERSON/ORG values Rules leave behind.
 
-Fourteen cases I wrote myself: positives for each required PII type, and four negatives (offer date, CIN-style id, order id, generic lead-manager phrasing).
+4. **Assignment output check** — inspect submitted `Red Herring Prospectus - Redacted.docx` for this tool’s synthetic replacement markers (original prospectus kept out of git because it contains real PII).
+
+**Precision policy:** order / ticket / CIN-style identifiers are **not** treated as PII. Leaving them is intentional.
+
+## Controlled suite results (live)
 
 | Metric | Value |
 | --- | ---: |
-| TP | 10 |
-| FP | 0 |
-| FN | 0 |
-| TN | 4 |
-| Accuracy | 100% |
-| Precision | 100% |
-| Recall | 100% |
+| Cases | 14 |
+| True positives (TP) | 10 |
+| False positives (FP) | 0 |
+| False negatives (FN) | 0 |
+| True negatives (TN) | 4 |
+| **Accuracy** | **100.0%** |
+| **Precision** | **100.0%** |
+| **Recall** | **100.0%** |
 
-## Prospectus
+Per-type TPs in that suite: name×2, email×1, phone×1, company×1, address×1, ssn×1, card×1, dob×1, ip×1.
 
-Rules pass over the Red Herring Prospectus produced (latest log): 229 changed paragraphs, 347 replacements, 174 unique source strings. Counts were dominated by company / email / name / address / phone. That file didn’t surface SSN, Luhn card, labelled DOB, or IPv4 for me; those categories still clear the controlled suite.
+## Fixture results (live)
 
-## Other proofs I keep in the repo
+| Script | Passed | Notes |
+| --- | --- | --- |
+| `manual_test.py` | yes | 9 types; 0 originals left; control retained |
+| `generic_docx_test.py` | yes | ticket / HR table / split runs all passed |
+| `ml_ner_test.py` | yes | Rules redactions = 2; Hybrid = 5 (+3 unlabelled entities) |
 
-- `generic_docx_test.py` — ticket, HR table+header/footer, run-split contact note. Seeded PII removed; control IDs kept.  
-- `ml_ner_test.py` — Rules: 2 hits (email+phone). Hybrid: 5 (adds Alice Johnson, Robert Chen, Microsoft). Control ticket id stays.
+## Prospectus output (verified on submitted file)
 
-## Honest limits
+Scanned `Red Herring Prospectus - Redacted.docx` today:
 
-Structured patterns are strong when format matches. Bare names and weird addresses are where recall drops if you stay rules-only; hybrid helps but can still miss domain legalese, and loosening NER too much would trash precision. Next step for real production would be a human-labelled sample from actual docs, then retune — not just ship the stock spaCy model and call it done.
+| Marker | Count |
+| --- | ---: |
+| Non-empty paragraphs | 694 |
+| `@example.com` emails | 38 |
+| `Example Entity … Limited` | 77 |
+| Example Avenue addresses | 27 |
+| Synthetic `+91` phones | 13 |
+| Synthetic SSN / card / IP | 0 |
+
+No live “347 total redactions” claim here — that needs a fresh run on the **original** prospectus:
+
+`python verify_metrics.py --prospectus "PATH\Red Herring Prospectus.docx"`
+
+## Limits
+
+Unit scores are high because the suite is designed and labelled. Real recall on bare names still needs hybrid mode; addresses and domain legalese can still slip. Extending to a new PII type = add a detector in `detect_pii` / known-value seeding, plus a row in `EVALUATION_CASES` and a fixture assert.

@@ -2,121 +2,89 @@
 
 Author: Kartikeya Mishra
 
-Live demo: [Hugging Face Space](https://huggingface.co/spaces/Kartikeym2007/Redact)
+Live demo (Rules only): [Hugging Face Space](https://huggingface.co/spaces/Kartikeym2007/Redact)
 
-This project redacts personally identifiable information from `.docx` files and replaces detected values with consistent synthetic alternatives. It was built for the Scaler PII Redaction assignment, but the core script works on arbitrary Word documents such as ticket logs, HR forms, support exports, and prospectus-style documents.
+Script that reads a `.docx`, finds PII, and writes another `.docx` with stable fake replacements (not `****` masks). Built for the Scaler assignment; works on the Red Herring Prospectus and on ordinary ticket/HR-style Word files.
 
-## What is included
+## Approach
 
-| File/folder | Purpose |
-| --- | --- |
-| `redact_pii.py` | Main DOCX redaction script. |
-| `Red Herring Prospectus - Redacted.docx` | Redacted output for the provided assignment document. |
-| `EVALUATION_REPORT.md` | Evaluation approach, metrics, and known trade-offs. |
-| `requirements.txt` | Python dependencies, including spaCy and the NER model wheel. |
-| `manual_test.py` | End-to-end fixture covering all required PII categories. |
-| `generic_docx_test.py` | Multi-document regression test for generic DOCX layouts. |
-| `ml_ner_test.py` | Proves ML/NER mode adds recall beyond rules-only mode. |
-| `web_app.py`, `web/` | Local frontend with a Rules vs ML/NER switch. |
-| `assets/` | README screenshots showing Rules and ML/NER frontend runs. |
+Two modes in `redact_pii.py`:
 
-## Redaction modes
+1. **Rules** — regex + context labels (emails, phones, SSN, Luhn cards, IPs, labelled DOBs, company suffixes, label/value table cells, etc.).
+2. **Hybrid ML/NER** — same rules plus spaCy `en_core_web_sm` for unlabelled PERSON/ORG in prose.
 
-The tool supports two modes:
+I do **not** treat order IDs, ticket IDs, or CIN-style corporate numbers as PII. Those stay in the text on purpose (precision over “redact every number”).
 
-1. **Rules mode**: deterministic regex and context rules.
-2. **Hybrid ML/NER mode**: the same rules plus spaCy `en_core_web_sm` to catch extra unlabelled PERSON and ORG entities.
+> **Note:** The live Hugging Face Space is a free static browser demo, so **ML / NER is disabled there**. Full Rules + spaCy runs locally (`python web_app.py` or CLI `--mode hybrid`). Longer write-up: [`SUBMISSION.docx`](SUBMISSION.docx) / [`SUBMISSION.md`](SUBMISSION.md).
 
-Rules remain the best fit for structured PII such as emails, phone numbers, SSNs, credit cards, DOB-labelled dates, and IP addresses. The NER layer improves recall for ambiguous names and organisation names in normal prose.
-
-## Install
+## Install / run
 
 ```powershell
 python -m pip install -r requirements.txt
-```
-
-## Run the redactor
-
-Rules mode:
-
-```powershell
 python redact_pii.py "input.docx" "redacted.docx"
-```
-
-Hybrid ML/NER mode:
-
-```powershell
 python redact_pii.py --mode hybrid "input.docx" "redacted.docx"
-```
-
-Optional local-only mapping:
-
-```powershell
-python redact_pii.py --mapping mapping.json "input.docx" "redacted.docx"
-```
-
-Do not submit or share the mapping file; it contains original-to-fake value relationships.
-
-## Local frontend
-
-```powershell
 python web_app.py
 ```
 
-Open `http://127.0.0.1:8000/`, choose **Rules** or **ML / NER**, upload a `.docx`, run redaction, preview the result, and download the generated redacted DOCX.
+## Verified metrics (re-run 18 Jul 2026)
 
-> **Note:** The live Hugging Face Space is a free **static** browser demo, so **ML / NER is disabled there**. Use **Rules** on the live Space. The full Python backend (Rules + spaCy **ML / NER**) is available through the local frontend and CLI.
+I re-ran the checks with `python verify_metrics.py`. Raw JSON: [`verified_metrics.json`](verified_metrics.json).
 
-For the fuller write-up (Rules vs ML, screenshots, metrics, trade-offs), see [`SUBMISSION.md`](SUBMISSION.md).
+### Controlled labelled suite (`python redact_pii.py --evaluate`)
 
-## Frontend screenshots
+14 cases I wrote: positives for every required PII type, plus negatives (offer date, CIN-like id, order id, generic business phrase).
 
-Rules mode redacts the structured email and phone number while leaving unlabelled prose entities unchanged:
+| Metric | Value |
+| --- | ---: |
+| Cases | 14 |
+| TP | 10 |
+| FP | 0 |
+| FN | 0 |
+| TN | 4 |
+| Accuracy | **100.0%** |
+| Precision | **100.0%** |
+| Recall | **100.0%** |
 
-![Rules mode frontend result](assets/frontend-rules-mode.png)
+These scores are for that suite only — not a claim that every paragraph of the prospectus is perfectly labelled.
 
-ML/NER mode uses the same rules plus spaCy NER, so it also catches unlabelled person and company entities:
+### Fixture runs (same verification pass)
 
-![ML NER mode frontend result](assets/frontend-ml-ner-mode.png)
+| Check | Result |
+| --- | --- |
+| `manual_test.py` | passed — all 9 PII types exercised; originals gone; non-PII control kept |
+| `generic_docx_test.py` | passed — 3 scenarios (ticket / HR table / split runs) |
+| `ml_ner_test.py` | passed — Rules: **2** redactions (email+phone); Hybrid: **5** (adds 2 names + Microsoft) |
 
-## Tests and evaluation
+### Submitted prospectus output (file on disk today)
 
-Run all checks:
+Original prospectus is not in the repo (real PII). What I *can* verify on `Red Herring Prospectus - Redacted.docx` right now is that our synthetic replacements are present:
+
+| Synthetic marker in redacted DOCX | Count |
+| --- | ---: |
+| `@example.com` emails | 38 |
+| `Example Entity … Limited` | 77 |
+| `Example Avenue, Sample City` addresses | 27 |
+| `+91 ##### #####` phones | 13 |
+| Synthetic SSN / card / IP patterns | 0 (none of those types landed in this doc) |
+| Non-empty paragraphs scanned | 694 |
+
+To recompute a full live redaction summary from the **original** assignment file:
 
 ```powershell
-python redact_pii.py --evaluate
-python manual_test.py
-python generic_docx_test.py
-python ml_ner_test.py
+python verify_metrics.py --prospectus "C:\path\to\Red Herring Prospectus.docx"
 ```
 
-Current controlled metrics from `python redact_pii.py --evaluate`:
+## What’s in the repo
 
-| Metric | Result |
-| --- | ---: |
-| Accuracy | 100.0% |
-| Precision | 100.0% |
-| Recall | 100.0% |
-
-These numbers are for the labelled deterministic test set, not a claim of perfect performance on every possible document.
-
-`ml_ner_test.py` verifies the ML/NER switch with a fixture containing unlabelled prose entities:
-
-- Rules mode redacts only structured email + phone.
-- Hybrid ML/NER mode also redacts `Alice Johnson`, `Robert Chen`, and `Microsoft`.
-
-## PII categories covered
-
-- Full names
-- Email addresses
-- Phone numbers
-- Company names
-- Physical/mailing addresses
-- SSNs
-- Credit card numbers, validated with Luhn
-- Dates of birth
-- IP addresses
+| Path | Role |
+| --- | --- |
+| `redact_pii.py` | Redaction engine |
+| `Red Herring Prospectus - Redacted.docx` | Assignment output |
+| `EVALUATION_REPORT.md` | Evaluation write-up |
+| `SUBMISSION.docx` | Longer notes + screenshots |
+| `verify_metrics.py` | Recomputes the numbers above |
+| `web_app.py`, `web/` | Local UI with Rules / ML switch |
 
 ## Trade-offs
 
-Regex and context rules are transparent, deterministic, and easy to evaluate. They are strong for structured PII, but can miss free-form names, informal company names, or unusual addresses. Hybrid mode improves recall using pretrained spaCy NER, but a production system should still use a reviewer-labelled corpus to tune precision/recall and possibly train a domain-specific NER model.
+Rules are predictable for structured PII and miss bare names in prose. Hybrid helps there (`ml_ner_test.py` shows it) but spaCy can still miss legalese or over-tag if you loosen it. Addresses across odd line breaks remain the soft spot. Live static HF ≠ local spaCy — I’m explicit about that instead of faking an online ML switch.

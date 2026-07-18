@@ -1,0 +1,192 @@
+{
+  "controlled_suite": {
+    "source": "python redact_pii.py --evaluate (live)",
+    "cases": 14,
+    "tp": 10,
+    "fp": 0,
+    "fn": 0,
+    "tn": 4,
+    "accuracy": 100.0,
+    "precision": 100.0,
+    "recall": 100.0,
+    "per_type": {
+      "name": {
+        "tp": 2
+      },
+      "email": {
+        "tp": 1
+      },
+      "phone": {
+        "tp": 1
+      },
+      "company": {
+        "tp": 1
+      },
+      "address": {
+        "tp": 1
+      },
+      "ssn": {
+        "tp": 1
+      },
+      "card": {
+        "tp": 1
+      },
+      "dob": {
+        "tp": 1
+      },
+      "ip": {
+        "tp": 1
+      }
+    }
+  },
+  "fixtures": {
+    "manual_test": {
+      "passed": true,
+      "input": "E:\\Scaler_file\\pii_redaction_solution\\examples\\manual_test_input.docx",
+      "output": "E:\\Scaler_file\\pii_redaction_solution\\examples\\manual_test_redacted.docx",
+      "redactions": {
+        "address": 1,
+        "card": 1,
+        "company": 1,
+        "dob": 1,
+        "email": 1,
+        "ip": 1,
+        "name": 4,
+        "phone": 1,
+        "ssn": 1
+      },
+      "types_exercised": [
+        "address",
+        "card",
+        "company",
+        "dob",
+        "email",
+        "ip",
+        "name",
+        "phone",
+        "ssn"
+      ],
+      "original_values_remaining": [],
+      "non_pii_control_retained": true
+    },
+    "generic_docx_test": {
+      "passed": true,
+      "scenarios": [
+        {
+          "scenario": "customer_ticket",
+          "passed": true,
+          "input": "E:\\Scaler_file\\pii_redaction_solution\\examples\\generic_regression\\customer_ticket.docx",
+          "output": "E:\\Scaler_file\\pii_redaction_solution\\examples\\generic_regression\\customer_ticket_redacted.docx",
+          "redactions": {
+            "address": 1,
+            "card": 1,
+            "company": 1,
+            "dob": 1,
+            "email": 1,
+            "ip": 1,
+            "name": 1,
+            "phone": 1,
+            "ssn": 1
+          },
+          "original_values_remaining": [],
+          "missing_controls": []
+        },
+        {
+          "scenario": "hr_table_header_footer",
+          "passed": true,
+          "input": "E:\\Scaler_file\\pii_redaction_solution\\examples\\generic_regression\\hr_table.docx",
+          "output": "E:\\Scaler_file\\pii_redaction_solution\\examples\\generic_regression\\hr_table_header_footer_redacted.docx",
+          "redactions": {
+            "address": 1,
+            "company": 1,
+            "dob": 1,
+            "email": 1,
+            "ip": 1,
+            "name": 2,
+            "phone": 1
+          },
+          "original_values_remaining": [],
+          "missing_controls": []
+        },
+        {
+          "scenario": "split_runs",
+          "passed": true,
+          "input": "E:\\Scaler_file\\pii_redaction_solution\\examples\\generic_regression\\split_runs.docx",
+          "output": "E:\\Scaler_file\\pii_redaction_solution\\examples\\generic_regression\\split_runs_redacted.docx",
+          "redactions": {
+            "address": 1,
+            "card": 1,
+            "company": 1,
+            "dob": 1,
+            "email": 1,
+            "ip": 1,
+            "name": 1,
+            "phone": 1,
+            "ssn": 1
+          },
+          "original_values_remaining": [],
+          "missing_controls": []
+        }
+      ]
+    },
+    "ml_ner_test": {
+      "passed": true,
+      "input": "E:\\Scaler_file\\pii_redaction_solution\\examples\\ml_ner\\unlabelled_entities.docx",
+      "rules_output": "E:\\Scaler_file\\pii_redaction_solution\\examples\\ml_ner\\unlabelled_entities_rules.docx",
+      "hybrid_output": "E:\\Scaler_file\\pii_redaction_solution\\examples\\ml_ner\\unlabelled_entities_hybrid.docx",
+      "rules_summary": {
+        "source": "E:\\Scaler_file\\pii_redaction_solution\\examples\\ml_ner\\unlabelled_entities.docx",
+        "output": "E:\\Scaler_file\\pii_redaction_solution\\examples\\ml_ner\\unlabelled_entities_rules.docx",
+        "mode": "rules",
+        "ner_model": null,
+        "changed_paragraphs": 2,
+        "redactions": {
+          "email": 1,
+          "phone": 1
+        },
+        "unique_replacements": 2
+      },
+      "hybrid_summary": {
+        "source": "E:\\Scaler_file\\pii_redaction_solution\\examples\\ml_ner\\unlabelled_entities.docx",
+        "output": "E:\\Scaler_file\\pii_redaction_solution\\examples\\ml_ner\\unlabelled_entities_hybrid.docx",
+        "mode": "hybrid",
+        "ner_model": "en_core_web_sm",
+        "changed_paragraphs": 3,
+        "redactions": {
+          "company": 1,
+          "email": 1,
+          "name": 2,
+          "phone": 1
+        },
+        "unique_replacements": 5
+      },
+      "rules_unlabelled_values_remaining": [
+        "Alice Johnson",
+        "Robert Chen",
+        "Microsoft"
+      ],
+      "hybrid_unlabelled_values_remaining": [],
+      "hybrid_structured_values_remaining": [],
+      "hybrid_missing_controls": [],
+      "hybrid_added_redactions": 3
+    }
+  },
+  "submitted_redacted_output": {
+    "file": "E:\\Scaler_file\\pii_redaction_solution\\Red Herring Prospectus - Redacted.docx",
+    "non_empty_paragraphs": 694,
+    "synthetic_marker_counts": {
+      "example_com_emails": 38,
+      "example_entity_company": 77,
+      "example_avenue_address": 27,
+      "synthetic_phone_91": 13,
+      "synthetic_ssn_900": 0,
+      "synthetic_card_4111": 0,
+      "synthetic_ip_203": 0
+    },
+    "note": "These are markers from our fake-replacement style in the submitted redacted file. They verify the output was produced by this tool; they are not the original prospectus redaction summary."
+  },
+  "prospectus_live_run": {
+    "available": false,
+    "reason": "Original prospectus .docx was not provided to this script. Pass --prospectus PATH to recompute live redaction counts."
+  }
+}
